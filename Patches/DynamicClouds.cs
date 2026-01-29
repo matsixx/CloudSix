@@ -51,12 +51,6 @@ namespace CloudSix.Patches
 
             CloudRenderer.cloudInstance.transform.position = fpsCam.transform.position;
 
-            if (CloudRenderer.cloudCommandBuffer != null && CloudRenderer.lowRenderer != null && CloudRenderer.lowMaterial != null)
-            {
-                CloudRenderer.cloudCommandBuffer.Clear();
-                CloudRenderer.cloudCommandBuffer.DrawRenderer(CloudRenderer.lowRenderer, CloudRenderer.lowMaterial);
-            }
-
             float cloudiness = __instance.WeatherCurve.Cloudiness;
             float rain = __instance.WeatherCurve.Rain;
             float timeOfDay = GClass4.Instance.Cycle.Hour;
@@ -77,7 +71,11 @@ namespace CloudSix.Patches
             Color cloudColor = CustomCloudController.CalculateCloudColor(sunColor, moonColor, timeOfDay, out float upperBrightness);
             CustomCloudController.UpdateCloudMaterial(density, upperDensity, sunColor, moonColor, sunDir, moonDir, sunIntensity, moonIntensity, cloudColor, upperBrightness);
             CustomCloudController.UpdateCloudOffsets();
-
+            if (CloudRenderer.cloudCommandBuffer != null && CloudRenderer.lowRenderer != null && CloudRenderer.lowMaterial != null)
+            {
+                CloudRenderer.cloudCommandBuffer.Clear();
+                CloudRenderer.cloudCommandBuffer.DrawRenderer(CloudRenderer.lowRenderer, CloudRenderer.lowMaterial);
+            }
         }
     }
 }
