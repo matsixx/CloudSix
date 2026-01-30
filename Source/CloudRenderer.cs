@@ -11,7 +11,11 @@ namespace CloudSix.Source
     {
         private static Camera lastRegisteredCamera;
 
-        public static CommandBuffer cloudCommandBuffer;
+        private static Camera lastMainCamera;
+        private static Camera lastOpticCamera;
+
+        public static CommandBuffer mainCloudCommandBuffer;
+        public static CommandBuffer opticCloudCommandBuffer;
         public static GameObject cloudInstance;
         public static Renderer lowRenderer;
         public static Material lowMaterial;
@@ -45,17 +49,25 @@ namespace CloudSix.Source
 
         public static void InstantiateCloudPrefab()
         {
-            if (cloudCommandBuffer != null)
+            // Clean up main camera buffer
+            if (mainCloudCommandBuffer != null)
             {
-                if (lastRegisteredCamera != null)
-                {
-                    lastRegisteredCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, cloudCommandBuffer);
-                }
-                cloudCommandBuffer.Dispose();
-                cloudCommandBuffer = null;
+                if (lastMainCamera != null)
+                    lastMainCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, mainCloudCommandBuffer);
+                mainCloudCommandBuffer.Dispose();
+                mainCloudCommandBuffer = null;
             }
+            lastMainCamera = null;
 
-            lastRegisteredCamera = null;
+            // Clean up optic camera buffer
+            if (opticCloudCommandBuffer != null)
+            {
+                if (lastOpticCamera != null)
+                    lastOpticCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, opticCloudCommandBuffer);
+                opticCloudCommandBuffer.Dispose();
+                opticCloudCommandBuffer = null;
+            }
+            lastOpticCamera = null;
 
             if (cloudInstance != null)
             {
@@ -107,28 +119,57 @@ namespace CloudSix.Source
             }
         }
 
-        public static void SetupCloudCommandBuffer(Camera cam)
+        public static void SetupCloudCommandBuffer(Camera mainCamera, Camera opticCamera)
         {
-            if (cam == null || lowRenderer == null)
+            if (mainCamera == null || lowRenderer == null)
                 return;
 
-            if (lastRegisteredCamera != null && lastRegisteredCamera != cam && cloudCommandBuffer != null)
+            // Main camera setup
+            if (lastMainCamera != null && lastMainCamera != mainCamera && mainCloudCommandBuffer != null)
             {
-                lastRegisteredCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, cloudCommandBuffer);
-                cloudCommandBuffer.Dispose();
-                cloudCommandBuffer = null;
+                lastMainCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, mainCloudCommandBuffer);
+                mainCloudCommandBuffer.Dispose();
+                mainCloudCommandBuffer = null;
             }
 
-            if (cloudCommandBuffer != null)
-                return;
+            if (mainCloudCommandBuffer == null)
+            {
+                lowRenderer.enabled = false;
+                mainCloudCommandBuffer = new CommandBuffer();
+                mainCloudCommandBuffer.name = "Custom Clouds Main";
+                mainCamera.AddCommandBuffer(CameraEvent.AfterForwardOpaque, mainCloudCommandBuffer);
+                lastMainCamera = mainCamera;
+            }
 
-            lowRenderer.enabled = false;
+            // Optic camera setup
+            if (opticCamera != null)
+            {
+                if (lastOpticCamera != null && lastOpticCamera != opticCamera && opticCloudCommandBuffer != null)
+                {
+                    lastOpticCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, opticCloudCommandBuffer);
+                    opticCloudCommandBuffer.Dispose();
+                    opticCloudCommandBuffer = null;
+                }
 
-            cloudCommandBuffer = new CommandBuffer();
-            cloudCommandBuffer.name = "Custom Clouds";
-
-            cam.AddCommandBuffer(CameraEvent.AfterForwardOpaque, cloudCommandBuffer);
-            lastRegisteredCamera = cam;
+                if (opticCloudCommandBuffer == null)
+                {
+                    opticCloudCommandBuffer = new CommandBuffer();
+                    opticCloudCommandBuffer.name = "Custom Clouds Optic";
+                    opticCamera.AddCommandBuffer(CameraEvent.AfterForwardOpaque, opticCloudCommandBuffer);
+                    lastOpticCamera = opticCamera;
+                }
+            }
+            else if (opticCloudCommandBuffer != null)
+            {
+                // Optic camera removed, clean up
+                if (lastOpticCamera != null)
+                {
+                    lastOpticCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, opticCloudCommandBuffer);
+                }
+                opticCloudCommandBuffer.Dispose();
+                opticCloudCommandBuffer = null;
+                lastOpticCamera = null;
+            }
         }
     }
 }

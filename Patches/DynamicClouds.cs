@@ -34,20 +34,15 @@ namespace CloudSix.Patches
                     return;
             }
 
-            if (fpsCam == null)
+            if (fpsCam == null || opticCam == null)
             {
-                var mainCam = Camera.main;
-                if (mainCam == null)
-                    return;
-
-                if (mainCam.name == "FPS Camera")
-                    fpsCam = mainCam;
+                InitializeCameras();
             }
 
             if (fpsCam == null)
                 return;
 
-            CloudRenderer.SetupCloudCommandBuffer(fpsCam);
+            CloudRenderer.SetupCloudCommandBuffer(fpsCam, opticCam);
 
             CloudRenderer.cloudInstance.transform.position = fpsCam.transform.position;
 
@@ -71,10 +66,27 @@ namespace CloudSix.Patches
             Color cloudColor = CustomCloudController.CalculateCloudColor(sunColor, moonColor, timeOfDay, out float upperBrightness);
             CustomCloudController.UpdateCloudMaterial(density, upperDensity, sunColor, moonColor, sunDir, moonDir, sunIntensity, moonIntensity, cloudColor, upperBrightness);
             CustomCloudController.UpdateCloudOffsets();
-            if (CloudRenderer.cloudCommandBuffer != null && CloudRenderer.lowRenderer != null && CloudRenderer.lowMaterial != null)
+            if (CloudRenderer.mainCloudCommandBuffer != null && CloudRenderer.lowRenderer != null && CloudRenderer.lowMaterial != null)
             {
-                CloudRenderer.cloudCommandBuffer.Clear();
-                CloudRenderer.cloudCommandBuffer.DrawRenderer(CloudRenderer.lowRenderer, CloudRenderer.lowMaterial);
+                CloudRenderer.mainCloudCommandBuffer.Clear();
+                CloudRenderer.mainCloudCommandBuffer.DrawRenderer(CloudRenderer.lowRenderer, CloudRenderer.lowMaterial);
+            }
+
+            if (CloudRenderer.opticCloudCommandBuffer != null && CloudRenderer.lowRenderer != null && CloudRenderer.lowMaterial != null)
+            {
+                CloudRenderer.opticCloudCommandBuffer.Clear();
+                CloudRenderer.opticCloudCommandBuffer.DrawRenderer(CloudRenderer.lowRenderer, CloudRenderer.lowMaterial);
+            }
+        }
+
+        private static void InitializeCameras()
+        {
+            foreach (var cam in Camera.allCameras)
+            {
+                if (cam.name == "FPS Camera")
+                    fpsCam = cam;
+                else if (cam.name == "BaseOpticCamera(Clone)")
+                    opticCam = cam;
             }
         }
     }

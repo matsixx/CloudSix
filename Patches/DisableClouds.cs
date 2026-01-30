@@ -16,7 +16,7 @@ namespace CloudSix.Patches
         }
 
         [PatchPrefix]
-        static bool Prefix(CloudController __instance)
+        static bool Prefix(Class1821 __instance)
         {
             return false;
         }
