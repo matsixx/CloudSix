@@ -4,7 +4,7 @@ using CloudSix.Patches;
 
 namespace CloudSix
 {
-    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "1.0.3")]
+    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "1.0.4")]
     public class Plugin : BaseUnityPlugin
     {
         public static ManualLogSource MyLog;
