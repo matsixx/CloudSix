@@ -12,13 +12,12 @@ namespace CloudSix.Patches
     {
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(CloudController), nameof(CloudController.UpdateAmbient));
+            return AccessTools.Method(typeof(Class1821), nameof(Class1821.RenderClouds));
         }
 
         [PatchPrefix]
         static bool Prefix(CloudController __instance)
         {
-            __instance.enabled = false;
             return false;
         }
     }

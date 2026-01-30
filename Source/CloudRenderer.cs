@@ -78,35 +78,32 @@ namespace CloudSix.Source
 
         public static void InitializeCloudRenderers()
         {
-            if (cloudPrefab == null)
+            if (cloudInstance == null)  // Check instance, not prefab
                 return;
 
-            Transform lowCloud = cloudPrefab.transform.Find("Low");
+            Transform lowCloud = cloudInstance.transform.Find("Low");  // Use instance
 
             if (lowCloud != null)
             {
                 lowCloud.gameObject.layer = 28;
 
-               CloudRenderer.lowRenderer = lowCloud.GetComponent<Renderer>();
-                if (CloudRenderer.lowRenderer != null)
+                lowRenderer = lowCloud.GetComponent<Renderer>();
+                if (lowRenderer != null)
                 {
-                   CloudRenderer.lowRenderer.allowOcclusionWhenDynamic = false;
-                   CloudRenderer.lowRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
-                    lowMaterial =CloudRenderer.lowRenderer.sharedMaterial;
+                    lowRenderer.allowOcclusionWhenDynamic = false;
+                    lowRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+                    lowMaterial = lowRenderer.material;  // Use .material not .sharedMaterial to get instance
                 }
             }
 
             if (lowMaterial != null)
             {
-                float tilingVariation0 = UnityEngine.Random.Range(0.3f, 0.8f);
-                float tilingVariation1 = UnityEngine.Random.Range(0.3f, 0.8f);
-
-                //lowMaterial.SetTextureScale("_ScatterMap0", new Vector2(tilingVariation0, tilingVariation0));
-                //lowMaterial.SetTextureScale("_ScatterMap1", new Vector2(tilingVariation1, tilingVariation1));
-
-                CustomCloudController.cloudOffset = new Vector4(UnityEngine.Random.Range(0f, 100f), UnityEngine.Random.Range(0f, 100f), UnityEngine.Random.Range(0f, 100f), UnityEngine.Random.Range(0f, 100f));
-
-
+                CustomCloudController.cloudOffset = new Vector4(
+                    UnityEngine.Random.Range(0f, 100f),
+                    UnityEngine.Random.Range(0f, 100f),
+                    UnityEngine.Random.Range(0f, 100f),
+                    UnityEngine.Random.Range(0f, 100f)
+                );
             }
         }
 

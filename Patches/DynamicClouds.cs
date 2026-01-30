@@ -18,7 +18,7 @@ namespace CloudSix.Patches
 
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(WeatherController), nameof(WeatherController.method_9));
+            return AccessTools.Method(typeof(WeatherController), nameof(WeatherController.LateUpdate));
         }
 
         [PatchPostfix]

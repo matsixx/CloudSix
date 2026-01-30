@@ -9,7 +9,7 @@ namespace CloudSix.Source
     {
 
         public static float lastWind = 0.0f;
-        public static Vector2 cloudOffset = Vector2.zero;
+        public static Vector2 cloudOffset = Vector4.zero;
         public static Vector2 lastWindDirection = new Vector2(1f, 0f);
 
         public static void UpdateWindSystem(Vector2 windVector)
@@ -30,7 +30,9 @@ namespace CloudSix.Source
 
         public static void UpdateCloudOffsets()
         {
-            cloudOffset += lastWindDirection * lastWind * Time.deltaTime;
+            cloudOffset.x += lastWindDirection.x * lastWind * Time.deltaTime;
+            cloudOffset.y += lastWindDirection.y * lastWind * Time.deltaTime;
+            // zw can be used for detail layer offset if needed
 
             if (CloudRenderer.lowMaterial != null)
                 CloudRenderer.lowMaterial.SetVector("_Offset", cloudOffset);

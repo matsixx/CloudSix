@@ -22,8 +22,11 @@ namespace CloudSix.Patches
         {
             EFT.Player player = __instance.transform.root.GetComponent<EFT.Player>();
 
+            
             if (player is not HideoutPlayer)
             {
+                if (CloudRenderer.cloudInstance != null)
+                    return;
                 CloudRenderer.LoadCloudPrefab();
                 CloudRenderer.InstantiateCloudPrefab();
             }
