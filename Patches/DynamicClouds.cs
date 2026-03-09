@@ -12,7 +12,6 @@ namespace CloudSix.Patches
 {
     internal class DynamicClouds : ModulePatch
     {
-        public static bool cleanerRan = false;
         public static Camera fpsCam;
         public static Camera opticCam;
 
@@ -49,6 +48,10 @@ namespace CloudSix.Patches
             float cloudiness = __instance.WeatherCurve.Cloudiness;
             float rain = __instance.WeatherCurve.Rain;
             float timeOfDay = GClass4.Instance.Cycle.Hour;
+            float timeOfDayMonth = GClass4.Instance.Cycle.Month;
+            float timeOfDayYear = GClass4.Instance.Cycle.Year;
+            float timeOfDayDay = GClass4.Instance.Cycle.Day;
+            //Plugin.MyLog.LogInfo($"Time: {timeOfDay}, Month: {timeOfDayMonth}, Year: {timeOfDayYear}, Day: {timeOfDayDay}");
             Vector2 windVector = __instance.WeatherCurve.Wind;
 
             CustomCloudController.UpdateWindSystem(windVector);

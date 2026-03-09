@@ -90,10 +90,10 @@ namespace CloudSix.Source
 
         public static void InitializeCloudRenderers()
         {
-            if (cloudInstance == null)  // Check instance, not prefab
+            if (cloudInstance == null)
                 return;
 
-            Transform lowCloud = cloudInstance.transform.Find("Low");  // Use instance
+            Transform lowCloud = cloudInstance.transform.Find("Low");
 
             if (lowCloud != null)
             {
@@ -103,8 +103,8 @@ namespace CloudSix.Source
                 if (lowRenderer != null)
                 {
                     lowRenderer.allowOcclusionWhenDynamic = false;
-                    lowRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
-                    lowMaterial = lowRenderer.material;  // Use .material not .sharedMaterial to get instance
+                    lowRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.Camera;
+                    lowMaterial = lowRenderer.material;
                 }
             }
 
@@ -170,6 +170,39 @@ namespace CloudSix.Source
                 opticCloudCommandBuffer = null;
                 lastOpticCamera = null;
             }
+        }
+
+        public static void CleanupClouds()
+        {
+            if (mainCloudCommandBuffer != null)
+            {
+                if (lastMainCamera)
+                    lastMainCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, mainCloudCommandBuffer);
+                mainCloudCommandBuffer.Dispose();
+                mainCloudCommandBuffer = null;
+            }
+            lastMainCamera = null;
+
+            if (opticCloudCommandBuffer != null)
+            {
+                if (lastOpticCamera)
+                    lastOpticCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, opticCloudCommandBuffer);
+                opticCloudCommandBuffer.Dispose();
+                opticCloudCommandBuffer = null;
+            }
+            lastOpticCamera = null;
+
+            if (cloudInstance)
+                GameObject.Destroy(cloudInstance);
+
+            cloudInstance = null;
+            lowRenderer = null;
+            lowMaterial = null;
+
+            // Reset wind state
+            CustomCloudController.cloudOffset = Vector4.zero;
+            CustomCloudController.lastWind = 0f;
+            CustomCloudController.lastWindDirection = new Vector2(1f, 0f);
         }
     }
 }

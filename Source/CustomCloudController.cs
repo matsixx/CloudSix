@@ -15,8 +15,8 @@ namespace CloudSix.Source
         public static void UpdateWindSystem(Vector2 windVector)
         {
             const float WIND_DAMPENING = 0.02f;
-            const float MIN_WIND = 0.00025f;
-            const float MAX_WIND = 0.002f;
+            const float MIN_WIND = 0.001f;
+            const float MAX_WIND = 0.006f;
             const float MIN_WIND_MAGNITUDE = 0.0f;
             const float MAX_WIND_MAGNITUDE = 0.5f;
 
@@ -32,7 +32,6 @@ namespace CloudSix.Source
         {
             cloudOffset.x += lastWindDirection.x * lastWind * Time.deltaTime;
             cloudOffset.y += lastWindDirection.y * lastWind * Time.deltaTime;
-            // zw can be used for detail layer offset if needed
 
             if (CloudRenderer.lowMaterial != null)
                 CloudRenderer.lowMaterial.SetVector("_Offset", cloudOffset);
@@ -53,51 +52,44 @@ namespace CloudSix.Source
             return Color.Lerp(sunColor, new Color(gray, gray, gray, sunColor.a), rainT * 0.5f);
         }
 
+        private static readonly Color nightCloudColor = new Color(0.22f, 0.24f, 0.28f).linear;
+
         public static Color CalculateCloudColor(Color sunColor, Color moonColor, float timeOfDay, out float upperBrightness)
         {
             Color sourceColor;
             float desaturateAmount;
             float brightnessMultiplier;
-
+            upperBrightness = 0.96f;
             if (timeOfDay >= 4.3f && timeOfDay <= 8f)
             {
-                // Dawn
                 float t = Mathf.InverseLerp(4.3f, 8f, timeOfDay);
-                sourceColor = Color.Lerp(moonColor, sunColor, t);
+                t = t * t;  // Ease-in: stays on nightCloudColor longer, accelerates toward sun at end
+                sourceColor = Color.Lerp(nightCloudColor, sunColor, t);
                 desaturateAmount = Mathf.Lerp(0.7f, 0.6f, t);
-                brightnessMultiplier = Mathf.Lerp(0.2f, 0.85f, t);
-                // Upper clouds get light earlier - brighter at start of dawn
-                upperBrightness = Mathf.Lerp(0.4f, 1.1f, t);
+                brightnessMultiplier = Mathf.Lerp(0.1f, 0.7f, t);
             }
             else if (timeOfDay > 8f && timeOfDay <= 19f)
             {
-                // Day
                 sourceColor = sunColor;
                 desaturateAmount = 0.6f;
                 brightnessMultiplier = 0.9f;
-                upperBrightness = 1.1f;
             }
-            else if (timeOfDay > 19f && timeOfDay <= 22.3f)
+            else if (timeOfDay > 19f && timeOfDay <= 22f)
             {
-                // Dusk
-                float t = Mathf.InverseLerp(19f, 22.3f, timeOfDay);
-                sourceColor = Color.Lerp(sunColor, moonColor, t);
+                float t = Mathf.InverseLerp(19f, 22f, timeOfDay);
+                t = t * t;  // Ease-in: stays on sunColor longer, darkens faster at end
+                sourceColor = Color.Lerp(sunColor, nightCloudColor, t);
                 desaturateAmount = Mathf.Lerp(0.6f, 0.7f, t);
-                brightnessMultiplier = Mathf.Lerp(0.85f, 0.2f, t);
-                // Upper clouds hold light longer - brighter at the end of dusk
-                upperBrightness = Mathf.Lerp(1.1f, 0.5f, t);
+                brightnessMultiplier = Mathf.Lerp(0.7f, 0.1f, t);
             }
             else
             {
-                // Night
-                sourceColor = moonColor;
-                desaturateAmount = 0.7f;
-                brightnessMultiplier = 0.25f;
-                upperBrightness = 0.35f;
+                return nightCloudColor;
             }
 
+            // Desaturate: lerp toward white
             Color desaturated = Color.Lerp(sourceColor, Color.white, desaturateAmount);
-
+            // Then darken
             return desaturated * brightnessMultiplier;
         }
 
@@ -105,6 +97,7 @@ namespace CloudSix.Source
         {
             if (CloudRenderer.lowMaterial == null)
                 return;
+            cloudColor.a = 1.0f;
             CloudRenderer.lowMaterial.SetFloat("_Density", density);
             CloudRenderer.lowMaterial.SetFloat("_UpperDensity", upperDensity);
             CloudRenderer.lowMaterial.SetColor("_SunColor", sunColor);
@@ -115,67 +108,83 @@ namespace CloudSix.Source
             CloudRenderer.lowMaterial.SetFloat("_MoonIntensity", moonIntensity);
             CloudRenderer.lowMaterial.SetColor("_CloudColor", cloudColor);
             CloudRenderer.lowMaterial.SetFloat("_UpperBrightness", upperBrightness);
+            CloudRenderer.lowMaterial.SetFloat("_EdgeSoftness", 0.31f);
+            CloudRenderer.lowMaterial.SetFloat("_ShadowStrength", 0.3f);
+            CloudRenderer.lowMaterial.SetFloat("_SubsurfaceIntensity", 0.7f);
+            CloudRenderer.lowMaterial.SetFloat("_UpperScale", 1.8f);
+            CloudRenderer.lowMaterial.SetFloat("_UpperAlpha", 0.6f);
+            CloudRenderer.lowMaterial.SetFloat("_UpperSpeedMult", 0.02f);
+            CloudRenderer.lowMaterial.SetFloat("_RimIntensity", 0.1f);
+            CloudRenderer.lowMaterial.SetFloat("_RimPower", 2f);
+            CloudRenderer.lowMaterial.SetFloat("_SunFalloff", 1f);
         }
+
+        private static readonly Color baseMoonColor = new Color(0.722f, 0.753f, 0.812f).linear;
+
+        private const float DESATURATION_MULTIPLIER = 0.3f;
+        private const float MAX_MOON_INTENSITY = 0.4f;
 
         public static void CalculateLightingParameters(float timeOfDay, out Color sunColor, out Color moonColor, out Vector3 sunDir, out Vector3 moonDir, out float sunIntensity, out float moonIntensity)
         {
             var todSky = MonoBehaviourSingleton<TOD_Sky>.Instance;
             Color rawSunColor = todSky.SunSkyColor;
-            Color rawMoonColor = todSky.MoonLightColor;
+            moonColor = baseMoonColor;
             sunDir = todSky.LocalSunDirection;
             moonDir = todSky.LocalMoonDirection;
-
-            // Desaturate sun color more at dawn/dusk
             float sunDesaturate;
             if (timeOfDay >= 4.3f && timeOfDay <= 7.0f)
             {
-                // Early dawn
                 float t = Mathf.InverseLerp(4.3f, 7.0f, timeOfDay);
                 sunDesaturate = Mathf.Lerp(0.20f, 0.1f, t);
             }
-            else if (timeOfDay > 17.0f && timeOfDay <= 19.8f)
+            else if (timeOfDay > 20.0f && timeOfDay <= 23.0f)
             {
-                // Dusk
-                float t = Mathf.InverseLerp(17.0f, 19.8f, timeOfDay);
+                float t = Mathf.InverseLerp(20.0f, 23.0f, timeOfDay);
                 sunDesaturate = Mathf.Lerp(0.1f, 0.20f, t);
             }
             else
             {
-                // Midday
                 sunDesaturate = 0.1f;
             }
 
-            sunColor = Color.Lerp(rawSunColor, Color.white, sunDesaturate);
-
-            // Slightly desaturate moon color
-            moonColor = Color.Lerp(rawMoonColor, Color.white, 0.10f);
-
+            sunDesaturate *= DESATURATION_MULTIPLIER;
+            sunColor = Color.Lerp(rawSunColor, Color.white, Mathf.Clamp01(sunDesaturate));
             if (timeOfDay >= 4.3f && timeOfDay <= 6.5f)
             {
-                // Dawn
+                // Dawn: sun stays low longer, ramps up at end
                 float t = Mathf.InverseLerp(4.3f, 6.5f, timeOfDay);
+                t = t * t;
                 sunIntensity = t;
                 moonIntensity = 1.0f - t;
             }
-            else if (timeOfDay > 6.5f && timeOfDay <= 18.0f)
+            else if (timeOfDay > 6.5f && timeOfDay <= 20f)
             {
-                // Day
                 sunIntensity = 1.0f;
                 moonIntensity = 0.0f;
             }
-            else if (timeOfDay > 18.0f && timeOfDay <= 19.8f)
+            else if (timeOfDay > 20f && timeOfDay <= 23.5f)
             {
-                // Dusk
-                float t = Mathf.InverseLerp(18.0f, 19.8f, timeOfDay);
+                float t = Mathf.InverseLerp(20f, 23.5f, timeOfDay);
                 sunIntensity = 1.0f - t;
+                moonIntensity = 0.0f;
+            }
+            else if (timeOfDay > 23.5f)
+            {
+                // Late night: moon slowly ramps up, stays low longer
+                float t = Mathf.InverseLerp(23.5f, 24f, timeOfDay);
+                t = t * t;
+                sunIntensity = 0.0f;
                 moonIntensity = t;
             }
             else
             {
-                // Night
+                // Early morning before dawn (0-4.3)
                 sunIntensity = 0.0f;
                 moonIntensity = 1.0f;
             }
+
+            // Cap moon intensity
+            moonIntensity = Mathf.Min(moonIntensity, MAX_MOON_INTENSITY);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using CloudSix.Source;
+using Comfort.Common;
 using EFT;
 using EFT.Rendering.Clouds;
 using HarmonyLib;
@@ -10,26 +11,23 @@ namespace CloudSix.Patches
 {
     internal class SpawnClouds : ModulePatch
     {
-        public static bool cleanerRan = false;
-
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(CharacterControllerSpawner), nameof(CharacterControllerSpawner.Spawn));
+            return AccessTools.Method(typeof(BloodOnScreen), nameof(BloodOnScreen.Start));
         }
 
-        [PatchPostfix]
-        static void Postfix(CharacterControllerSpawner __instance)
+        [PatchPrefix]
+        static void Prefix(BloodOnScreen __instance)
         {
-            EFT.Player player = __instance.transform.root.GetComponent<EFT.Player>();
+            var gameWorld = Singleton<GameWorld>.Instance;
+            Player player = gameWorld?.MainPlayer;
 
-            
-            if (player is not HideoutPlayer)
-            {
-                if (CloudRenderer.cloudInstance != null)
-                    return;
-                CloudRenderer.LoadCloudPrefab();
-                CloudRenderer.InstantiateCloudPrefab();
-            }
+            if (player == null || player is HideoutPlayer)
+                return;
+
+            CloudRenderer.CleanupClouds();
+            CloudRenderer.LoadCloudPrefab();
+            CloudRenderer.InstantiateCloudPrefab();
         }
     }
 }
