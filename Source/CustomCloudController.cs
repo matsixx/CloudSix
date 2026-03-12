@@ -72,7 +72,7 @@ namespace CloudSix.Source
             {
                 sourceColor = sunColor;
                 desaturateAmount = 0.6f;
-                brightnessMultiplier = 0.9f;
+                brightnessMultiplier = 0.7f;
             }
             else if (timeOfDay > 19f && timeOfDay <= 22f)
             {
@@ -117,6 +117,7 @@ namespace CloudSix.Source
             CloudRenderer.lowMaterial.SetFloat("_RimIntensity", 0.1f);
             CloudRenderer.lowMaterial.SetFloat("_RimPower", 2f);
             CloudRenderer.lowMaterial.SetFloat("_SunFalloff", 1f);
+            CloudRenderer.lowMaterial.SetFloat("_DomeScale", 5f);
         }
 
         private static readonly Color baseMoonColor = new Color(0.722f, 0.753f, 0.812f).linear;

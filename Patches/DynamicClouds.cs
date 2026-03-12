@@ -43,7 +43,7 @@ namespace CloudSix.Patches
 
             CloudRenderer.SetupCloudCommandBuffer(fpsCam, opticCam);
 
-            CloudRenderer.cloudInstance.transform.position = fpsCam.transform.position;
+            CloudRenderer.cloudInstance.transform.position = fpsCam.transform.position + new Vector3(0, -800f, 0);
 
             float cloudiness = __instance.WeatherCurve.Cloudiness;
             float rain = __instance.WeatherCurve.Rain;
