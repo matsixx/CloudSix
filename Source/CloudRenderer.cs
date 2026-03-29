@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -9,8 +7,6 @@ namespace CloudSix.Source
 {
     internal class CloudRenderer
     {
-        private static Camera lastRegisteredCamera;
-
         private static Camera lastMainCamera;
         private static Camera lastOpticCamera;
 
@@ -21,6 +17,19 @@ namespace CloudSix.Source
         public static Material lowMaterial;
         public static GameObject cloudPrefab;
 
+        // Half-res rendering
+        private static Material compositeMaterial;
+        private static Shader compositeShader;
+        private static int cloudRT = Shader.PropertyToID("_CloudRT");
+        public static bool useHalfRes = true;
+        public static CloudResolution cloudResolution = CloudResolution.Half;
+        public enum CloudResolution
+        {
+            Full,
+            ThreeQuarter,
+            Half
+        }
+
         public static void LoadCloudPrefab()
         {
             if (cloudPrefab != null)
@@ -28,7 +37,7 @@ namespace CloudSix.Source
 
             try
             {
-                string bundlePath = Path.Combine(BepInEx.Paths.PluginPath, "CloudSix", "Assets", "customclouds");
+                string bundlePath = Path.Combine(BepInEx.Paths.PluginPath, "CloudSix", "Assets", "volumetricclouds");
                 AssetBundle cloudBundle = AssetBundle.LoadFromFile(bundlePath);
                 if (cloudBundle == null)
                 {
@@ -36,7 +45,8 @@ namespace CloudSix.Source
                     return;
                 }
 
-                cloudPrefab = cloudBundle.LoadAsset<GameObject>("Clouds New");
+                cloudPrefab = cloudBundle.LoadAsset<GameObject>("Clouds Vol");
+                compositeShader = cloudBundle.LoadAsset<Shader>("CloudComposite");
                 cloudBundle.Unload(false);
                 GameObject.DontDestroyOnLoad(cloudPrefab);
                 Plugin.MyLog.LogInfo("Cloud prefab loaded successfully.");
@@ -44,6 +54,23 @@ namespace CloudSix.Source
             catch (Exception ex)
             {
                 Plugin.MyLog.LogError($"Error loading cloud prefab: {ex.Message}");
+            }
+        }
+
+        public static void LoadCompositeMaterial()
+        {
+            if (compositeMaterial != null)
+                return;
+
+            if (compositeShader != null)
+            {
+                compositeMaterial = new Material(compositeShader);
+                Plugin.MyLog.LogInfo("Cloud composite material loaded.");
+            }
+            else
+            {
+                Plugin.MyLog.LogError("Composite shader not loaded from bundle. Half-res rendering disabled.");
+                useHalfRes = false;
             }
         }
 
@@ -85,8 +112,9 @@ namespace CloudSix.Source
                 cloudInstance.transform.localScale = new Vector3(10f, 10f, 10f);
                 Plugin.MyLog.LogInfo("Cloud prefab instantiated.");
             }
-        }
 
+            LoadCompositeMaterial();
+        }
 
         public static void InitializeCloudRenderers()
         {
@@ -110,8 +138,14 @@ namespace CloudSix.Source
 
             if (lowMaterial != null)
             {
-                CustomCloudController.cloudOffset = new Vector4(
+                CustomCloudController.windOffset = new Vector4(
                     UnityEngine.Random.Range(0f, 100f),
+                    UnityEngine.Random.Range(0f, 100f),
+                    UnityEngine.Random.Range(0f, 100f),
+                    0f
+                );
+
+                CustomCloudController.macroOffset = new Vector3(
                     UnityEngine.Random.Range(0f, 100f),
                     UnityEngine.Random.Range(0f, 100f),
                     UnityEngine.Random.Range(0f, 100f)
@@ -124,7 +158,6 @@ namespace CloudSix.Source
             if (mainCamera == null || lowRenderer == null)
                 return;
 
-            // Main camera setup
             if (lastMainCamera != null && lastMainCamera != mainCamera && mainCloudCommandBuffer != null)
             {
                 lastMainCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, mainCloudCommandBuffer);
@@ -141,7 +174,6 @@ namespace CloudSix.Source
                 lastMainCamera = mainCamera;
             }
 
-            // Optic camera setup
             if (opticCamera != null)
             {
                 if (lastOpticCamera != null && lastOpticCamera != opticCamera && opticCloudCommandBuffer != null)
@@ -161,14 +193,61 @@ namespace CloudSix.Source
             }
             else if (opticCloudCommandBuffer != null)
             {
-                // Optic camera removed, clean up
                 if (lastOpticCamera != null)
-                {
                     lastOpticCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, opticCloudCommandBuffer);
-                }
                 opticCloudCommandBuffer.Dispose();
                 opticCloudCommandBuffer = null;
                 lastOpticCamera = null;
+            }
+        }
+
+        // Populates a command buffer with cloud rendering commands.
+        // If useHalfRes is true, renders to a half-res RT then composites back.
+
+        public static void PopulateCommandBuffer(CommandBuffer cmd, Camera cam)
+        {
+            if (cmd == null || cam == null || lowRenderer == null)
+                return;
+
+            cmd.Clear();
+
+            if (cloudResolution != CloudResolution.Full && compositeMaterial != null)
+            {
+                int divisor;
+                switch (cloudResolution)
+                {
+                    case CloudResolution.ThreeQuarter:
+                        divisor = 4;
+                        break;
+                    case CloudResolution.Half:
+                    default:
+                        divisor = 2;
+                        break;
+                }
+
+                int width, height;
+                if (cloudResolution == CloudResolution.ThreeQuarter)
+                {
+                    width = cam.pixelWidth * 3 / 4;
+                    height = cam.pixelHeight * 3 / 4;
+                }
+                else
+                {
+                    width = cam.pixelWidth / 2;
+                    height = cam.pixelHeight / 2;
+                }
+
+                cmd.GetTemporaryRT(cloudRT, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf);
+                cmd.SetRenderTarget(cloudRT);
+                cmd.ClearRenderTarget(false, true, new Color(0, 0, 0, 0));
+                cmd.DrawRenderer(lowRenderer, lowMaterial);
+
+                cmd.Blit(cloudRT, BuiltinRenderTextureType.CameraTarget, compositeMaterial);
+                cmd.ReleaseTemporaryRT(cloudRT);
+            }
+            else
+            {
+                cmd.DrawRenderer(lowRenderer, lowMaterial);
             }
         }
 
@@ -199,10 +278,13 @@ namespace CloudSix.Source
             lowRenderer = null;
             lowMaterial = null;
 
-            // Reset wind state
-            CustomCloudController.cloudOffset = Vector4.zero;
-            CustomCloudController.lastWind = 0f;
-            CustomCloudController.lastWindDirection = new Vector2(1f, 0f);
+            if (compositeMaterial != null)
+            {
+                UnityEngine.Object.Destroy(compositeMaterial);
+                compositeMaterial = null;
+            }
+
+            CustomCloudController.windOffset = Vector4.zero;
         }
     }
 }

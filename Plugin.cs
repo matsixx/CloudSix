@@ -1,10 +1,11 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
 using CloudSix.Patches;
+using CloudSix.Source;
 
 namespace CloudSix
 {
-    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "1.0.7")]
+    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "2.0.0")]
     public class Plugin : BaseUnityPlugin
     {
         public static ManualLogSource MyLog;
@@ -13,7 +14,8 @@ namespace CloudSix
         {
             MyLog = Logger;
             MyLog.LogInfo("CloudSix loaded!");
-          
+
+            CloudConfig.Bind(Config);
             new DisableClouds().Enable();
             new DisableClouds().Enable();
             new DynamicClouds().Enable();

@@ -25,61 +25,45 @@ namespace CloudSix.Patches
         {
             if (CloudRenderer.cloudPrefab == null)
                 return;
-            
+
             if (CloudRenderer.lowRenderer == null)
             {
                 CloudRenderer.InitializeCloudRenderers();
                 if (CloudRenderer.lowRenderer == null)
                     return;
             }
-
             if (fpsCam == null || opticCam == null)
             {
                 InitializeCameras();
             }
-
             if (fpsCam == null)
                 return;
-
             CloudRenderer.SetupCloudCommandBuffer(fpsCam, opticCam);
-
-            CloudRenderer.cloudInstance.transform.position = fpsCam.transform.position + new Vector3(0, -800f, 0);
+            CloudRenderer.cloudInstance.transform.position = fpsCam.transform.position;
 
             float cloudiness = __instance.WeatherCurve.Cloudiness;
-            float rain = __instance.WeatherCurve.Rain;
             float timeOfDay = GClass4.Instance.Cycle.Hour;
-            float timeOfDayMonth = GClass4.Instance.Cycle.Month;
-            float timeOfDayYear = GClass4.Instance.Cycle.Year;
-            float timeOfDayDay = GClass4.Instance.Cycle.Day;
-            //Plugin.MyLog.LogInfo($"Time: {timeOfDay}, Month: {timeOfDayMonth}, Year: {timeOfDayYear}, Day: {timeOfDayDay}");
             Vector2 windVector = __instance.WeatherCurve.Wind;
 
-            CustomCloudController.UpdateWindSystem(windVector);
+            // Wind
+            CustomCloudController.UpdateWind(windVector);
 
-            // Cloudiness (-1 to 1) -> Density (0.6 clear to 1.75 overcast)
+            // Coverage: cloudiness (-1 to 1) -> coverage (0.2 clear to 1.0 overcast)
             float normalizedCloudiness = (cloudiness + 1f) * 0.5f;
-            float density = Mathf.Lerp(0.6f, 1.75f, normalizedCloudiness);
-            float upperDensity = Mathf.Lerp(0.6f, 1.2f, Mathf.InverseLerp(0.6f, 1.75f, density));
+            float coverage = Mathf.Lerp(0.2f, 1.9f, normalizedCloudiness);
+            CloudRenderer.lowMaterial.SetFloat("_CloudDensity", coverage);
 
-            CustomCloudController.CalculateLightingParameters(timeOfDay, out Color sunColor, out Color moonColor, out Vector3 sunDir, out Vector3 moonDir, out float sunIntensity, out float moonIntensity);
+            // Cloud base lowers as coverage increases
+            float heightT = Mathf.Clamp01((coverage - 0.2f) / (0.85f - 0.2f));
+            heightT = heightT * heightT;
+            float bottomHeight = Mathf.Lerp(1500f, 1200f, heightT);
+            CloudRenderer.lowMaterial.SetFloat("_CloudBottomHeight", bottomHeight);
+            CloudRenderer.lowMaterial.SetFloat("_CloudTopHeight", 4000f);
 
-            // Rain darkens clouds and sun
-            //sunColor = CustomCloudController.ApplyRainEffect(sunColor, rain);
-
-            Color cloudColor = CustomCloudController.CalculateCloudColor(sunColor, moonColor, timeOfDay, out float upperBrightness);
-            CustomCloudController.UpdateCloudMaterial(density, upperDensity, sunColor, moonColor, sunDir, moonDir, sunIntensity, moonIntensity, cloudColor, upperBrightness);
-            CustomCloudController.UpdateCloudOffsets();
-            if (CloudRenderer.mainCloudCommandBuffer != null && CloudRenderer.lowRenderer != null && CloudRenderer.lowMaterial != null)
-            {
-                CloudRenderer.mainCloudCommandBuffer.Clear();
-                CloudRenderer.mainCloudCommandBuffer.DrawRenderer(CloudRenderer.lowRenderer, CloudRenderer.lowMaterial);
-            }
-
-            if (CloudRenderer.opticCloudCommandBuffer != null && CloudRenderer.lowRenderer != null && CloudRenderer.lowMaterial != null)
-            {
-                CloudRenderer.opticCloudCommandBuffer.Clear();
-                CloudRenderer.opticCloudCommandBuffer.DrawRenderer(CloudRenderer.lowRenderer, CloudRenderer.lowMaterial);
-            }
+            CustomCloudController.UpdateMaterial(CloudRenderer.lowMaterial, timeOfDay);
+            CloudConfig.ApplyToMaterial(CloudRenderer.lowMaterial);
+            CloudRenderer.PopulateCommandBuffer(CloudRenderer.mainCloudCommandBuffer, fpsCam);
+            CloudRenderer.PopulateCommandBuffer(CloudRenderer.opticCloudCommandBuffer, opticCam);
         }
 
         private static void InitializeCameras()
