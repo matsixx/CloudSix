@@ -5,7 +5,9 @@ using EFT.Rendering.Clouds;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using System;
+using System.Linq;
 using System.Reflection;
+using UnityEngine;
 
 namespace CloudSix.Patches
 {
@@ -16,6 +18,8 @@ namespace CloudSix.Patches
             return AccessTools.Method(typeof(BloodOnScreen), nameof(BloodOnScreen.Start));
         }
 
+        static readonly string[] _indoorScenes = { "factory", "laboratory", "labyrinth" };
+
         [PatchPrefix]
         static void Prefix(BloodOnScreen __instance)
         {
@@ -23,6 +27,10 @@ namespace CloudSix.Patches
             Player player = gameWorld?.MainPlayer;
 
             if (player == null || player is HideoutPlayer)
+                return;
+
+            string currentMap = player.Location;
+            if (_indoorScenes.Any(s => currentMap.Contains(s, StringComparison.OrdinalIgnoreCase)))
                 return;
 
             CloudRenderer.CleanupClouds();

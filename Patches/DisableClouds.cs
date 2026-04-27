@@ -1,4 +1,5 @@
-﻿using EFT.Rendering.Clouds;
+﻿using EFT.EnvironmentEffect;
+using EFT.Rendering.Clouds;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using System;
@@ -19,6 +20,24 @@ namespace CloudSix.Patches
         static bool Prefix(Class1821 __instance)
         {
             return false;
+        }
+    }
+    internal class DisableEyeAdaptation : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(EnvironmentManager), nameof(EnvironmentManager.Update));
+        }
+
+        public static bool IsEnabled = true;
+
+        [PatchPrefix]
+        static void Prefix(EnvironmentManager __instance)
+        {
+            if (!IsEnabled)
+                return;
+
+            __instance.PrismExposureSpeed = 0f;
         }
     }
 }

@@ -3,6 +3,7 @@ using EFT;
 using EFT.Rendering.Clouds;
 using EFT.Weather;
 using HarmonyLib;
+using Newtonsoft.Json.Linq;
 using SPT.Reflection.Patching;
 using System;
 using System.Reflection;
@@ -14,10 +15,25 @@ namespace CloudSix.Patches
     {
         public static Camera fpsCam;
         public static Camera opticCam;
+        private static bool frontInitialized = false;
+        private static float frontDirection = 0f;
+        private static float frontTargetDistance = 0f;
+        private static float frontCurrentDistance = 0f;
 
         protected override MethodBase GetTargetMethod()
         {
             return AccessTools.Method(typeof(WeatherController), nameof(WeatherController.LateUpdate));
+        } 
+
+        static void InitializeWeatherFront(Vector2 windVector)
+        {
+            Vector2 dir = windVector.normalized;
+            frontDirection = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+            if (frontDirection < 0f) frontDirection += 360f;
+            float r = UnityEngine.Random.Range(0f, 1f);
+            frontTargetDistance = 0.01f + r * r * 0.99f;
+            frontCurrentDistance = 0f;
+            frontInitialized = true;
         }
 
         [PatchPostfix]
@@ -38,6 +54,8 @@ namespace CloudSix.Patches
             }
             if (fpsCam == null)
                 return;
+
+            var todSky = MonoBehaviourSingleton<TOD_Sky>.Instance;
             CloudRenderer.SetupCloudCommandBuffer(fpsCam, opticCam);
             CloudRenderer.cloudInstance.transform.position = fpsCam.transform.position;
 
@@ -48,20 +66,52 @@ namespace CloudSix.Patches
             // Wind
             CustomCloudController.UpdateWind(windVector);
 
-            // Coverage: cloudiness (-1 to 1) -> coverage (0.2 clear to 1.0 overcast)
+            // Cloud low and high coverage
             float normalizedCloudiness = (cloudiness + 1f) * 0.5f;
-            float coverage = Mathf.Lerp(0.2f, 1.9f, normalizedCloudiness);
-            CloudRenderer.lowMaterial.SetFloat("_CloudDensity", coverage);
+            float density = Mathf.Lerp(0.3f, 3f, normalizedCloudiness);
+            CloudRenderer.lowMaterial.SetFloat("_CloudDensity", density);
 
-            // Cloud base lowers as coverage increases
-            float heightT = Mathf.Clamp01((coverage - 0.2f) / (0.85f - 0.2f));
-            heightT = heightT * heightT;
-            float bottomHeight = Mathf.Lerp(1500f, 1200f, heightT);
-            CloudRenderer.lowMaterial.SetFloat("_CloudBottomHeight", bottomHeight);
-            CloudRenderer.lowMaterial.SetFloat("_CloudTopHeight", 4000f);
+            float highCloudDensity = Mathf.Lerp(0.5f, 1.0f, normalizedCloudiness);
+            CloudRenderer.lowMaterial.SetFloat("_HighCloudCoverage", highCloudDensity);
+
+            // Cloud type based on coverage
+            float cloudType = normalizedCloudiness;
+            CloudRenderer.lowMaterial.SetFloat("_CloudType", cloudType);
+
+            CloudRenderer.lowMaterial.SetFloat("_CloudBottomHeight", 1200f);
+            CloudRenderer.lowMaterial.SetFloat("_CloudTopHeight", 3000);
 
             CustomCloudController.UpdateMaterial(CloudRenderer.lowMaterial, timeOfDay);
             CloudConfig.ApplyToMaterial(CloudRenderer.lowMaterial);
+
+            // Update the cloud shadow cookie          
+            var mainLight = todSky.Components.LightSource;
+            if (mainLight != null && CloudRenderer.cloudShadowMap != null)
+            {
+                Vector3 lightDir = -mainLight.transform.forward;
+                Vector3 camPos = fpsCam.transform.position;
+
+                CloudRenderer.UpdateCloudShadowMap(CloudRenderer.lowMaterial, lightDir, camPos);
+            }
+            /*
+            // After UpdateCloudShadowMap has been called
+            if (Time.frameCount % 300 == 0 && CloudRenderer.cloudShadowMap != null)
+            {
+                var prev = RenderTexture.active;
+                RenderTexture.active = CloudRenderer.cloudShadowMap;
+                var debug = new Texture2D(CloudRenderer.cloudShadowMap.width,
+                                          CloudRenderer.cloudShadowMap.height,
+                                          TextureFormat.RGBA32, false);
+                debug.ReadPixels(new Rect(0, 0, debug.width, debug.height), 0, 0);
+                debug.Apply();
+                RenderTexture.active = prev;
+
+                var path = System.IO.Path.Combine(BepInEx.Paths.PluginPath, "CloudSix", "shadow_debug.tga");
+                System.IO.File.WriteAllBytes(path, debug.EncodeToTGA());
+                UnityEngine.Object.Destroy(debug);
+                Plugin.MyLog.LogInfo($"Shadow dumped to {path}");
+            }
+            */
             CloudRenderer.PopulateCommandBuffer(CloudRenderer.mainCloudCommandBuffer, fpsCam);
             CloudRenderer.PopulateCommandBuffer(CloudRenderer.opticCloudCommandBuffer, opticCam);
         }

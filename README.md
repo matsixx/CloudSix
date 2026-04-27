@@ -16,4 +16,5 @@ My main focus with these clouds was keeping them visually stable and very optimi
 - Physically based volumetrics aware of sun/moon position
 - Procedural coloring based on Tarkov's atmospherics
 - Well optimized - it performs well in VR also
+- Terrain shadows based on cloud position
 

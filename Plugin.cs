@@ -5,7 +5,7 @@ using CloudSix.Source;
 
 namespace CloudSix
 {
-    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "2.0.0")]
+    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "3.0.0")]
     public class Plugin : BaseUnityPlugin
     {
         public static ManualLogSource MyLog;
@@ -17,9 +17,13 @@ namespace CloudSix
 
             CloudConfig.Bind(Config);
             new DisableClouds().Enable();
-            new DisableClouds().Enable();
             new DynamicClouds().Enable();
             new SpawnClouds().Enable();
+            new DisableEyeAdaptation().Enable();
+            new CloudShadowsDisable().Enable();
+            new CloudShadowsAllocate().Enable();
+            new CloudShadowsCookieSize().Enable();
+            new CloudShadowsRelease().Enable();
         }
     }
 }
