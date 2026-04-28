@@ -5,7 +5,7 @@ using CloudSix.Source;
 
 namespace CloudSix
 {
-    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "3.0.2")]
+    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "3.0.3")]
     public class Plugin : BaseUnityPlugin
     {
         public static ManualLogSource MyLog;
