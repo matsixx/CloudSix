@@ -37,6 +37,7 @@ namespace CloudSix.Patches
             if (!IsEnabled)
                 return;
 
+            __instance.PrismExposureOffset = 0.23f;
             __instance.PrismExposureSpeed = 0f;
         }
     }

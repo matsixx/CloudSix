@@ -28,7 +28,6 @@ namespace CloudSix.Patches
 
     internal class CloudShadowsAllocate : ModulePatch
     {
-        public static float capturedShadowSize = 5000f;
 
         protected override MethodBase GetTargetMethod()
         {
@@ -41,9 +40,7 @@ namespace CloudSix.Patches
             CloudRenderer.LoadCloudPrefab();
             CloudRenderer.LoadShadowMaterial();
             if (CloudRenderer.cloudShadowMap == null) return;
-            if (!cloudLayer.Boolean_0) return;
-
-            capturedShadowSize = cloudLayer.ShadowSize;
+            //if (!cloudLayer.Boolean_0) return;
 
             if (__instance.cloudShadowsRT != null
                 && __instance.cloudShadowsRT != CloudRenderer.cloudShadowMap)
