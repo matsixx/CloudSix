@@ -86,21 +86,17 @@ namespace CloudSix.Source
                 float boostEnd = 0.7f;
                 float boostT = Mathf.Clamp01(Mathf.InverseLerp(boostStart, boostEnd, normalizedCloudiness));
 
+                // Gate by sun height — no boost at night, full boost at noon
+                float dayMask = Mathf.Clamp01(sunHeight);
+                boostT *= dayMask;
+
                 Color overcastTint = new Color(0.75f, 0.78f, 0.82f);
                 float desaturation = boostT * 0.5f;
                 float brightness = 1.0f + boostT * 0.3f;
 
-                Color baseAmbient = ambient;  // capture before modification for logging
-
                 ambient = Color.Lerp(ambient, overcastTint, desaturation);
                 ambient *= brightness;
                 ambient.a = 1f;
-                /*
-                Plugin.MyLog.LogInfo($"normalizedCloudiness={normalizedCloudiness}, " +
-                                     $"boostT={boostT}, " +
-                                     $"baseAmbient={baseAmbient}, " +
-                                     $"finalAmbient={ambient}");
-                */
             }
 
             cloudMaterial.SetColor("_AmbientColor", ambient);
