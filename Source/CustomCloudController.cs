@@ -26,15 +26,11 @@ namespace CloudSix.Source
         public static void UpdateWind(Vector2 windVector)
         {
             const float WIND_DAMPENING = 2.0f;
-            const float MIN_SPEED = 0.0004f;
-            const float MAX_SPEED = 0.001f;
-
+            float minSpeed = CloudConfig.WindSpeedMin.Value;
+            float maxSpeed = CloudConfig.WindSpeedMax.Value;
             float magnitude = windVector.magnitude;
-            float targetSpeed = Mathf.Lerp(MIN_SPEED, MAX_SPEED, Mathf.InverseLerp(0f, 0.5f, magnitude));
+            float targetSpeed = Mathf.Lerp(minSpeed, maxSpeed, Mathf.InverseLerp(0f, 0.5f, magnitude));
             smoothedWindSpeed = Mathf.Lerp(smoothedWindSpeed, targetSpeed, WIND_DAMPENING * Time.deltaTime);
-
-            //if (windVector.sqrMagnitude > 0.0001f)
-                //lastWindDirection = windVector.normalized;
         }
 
         public static void UpdateMaterial(Material cloudMaterial, float timeOfDay)
@@ -86,7 +82,6 @@ namespace CloudSix.Source
                 float boostEnd = 0.7f;
                 float boostT = Mathf.Clamp01(Mathf.InverseLerp(boostStart, boostEnd, normalizedCloudiness));
 
-                // Gate by sun height — no boost at night, full boost at noon
                 float dayMask = Mathf.Clamp01(sunHeight);
                 boostT *= dayMask;
 

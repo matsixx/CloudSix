@@ -25,17 +25,6 @@ namespace CloudSix.Patches
             return AccessTools.Method(typeof(WeatherController), nameof(WeatherController.LateUpdate));
         } 
 
-        static void InitializeWeatherFront(Vector2 windVector)
-        {
-            Vector2 dir = windVector.normalized;
-            frontDirection = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
-            if (frontDirection < 0f) frontDirection += 360f;
-            float r = UnityEngine.Random.Range(0f, 1f);
-            frontTargetDistance = 0.01f + r * r * 0.99f;
-            frontCurrentDistance = 0f;
-            frontInitialized = true;
-        }
-
         [PatchPostfix]
         static void Postfix(WeatherController __instance)
         {
@@ -79,7 +68,7 @@ namespace CloudSix.Patches
             CloudRenderer.lowMaterial.SetFloat("_CloudType", cloudType);
 
             CloudRenderer.lowMaterial.SetFloat("_CloudBottomHeight", 1200f);
-            CloudRenderer.lowMaterial.SetFloat("_CloudTopHeight", 3000);
+            CloudRenderer.lowMaterial.SetFloat("_CloudTopHeight", 4000);
 
             CustomCloudController.UpdateMaterial(CloudRenderer.lowMaterial, timeOfDay);
             CloudConfig.ApplyToMaterial(CloudRenderer.lowMaterial);
@@ -91,7 +80,7 @@ namespace CloudSix.Patches
                 Vector3 lightDir = -mainLight.transform.forward;
                 Vector3 camPos = fpsCam.transform.position;
 
-                CloudRenderer.UpdateCloudShadowMap(CloudRenderer.lowMaterial, lightDir, camPos);
+                CloudRenderer.UpdateCloudShadowMap(CloudRenderer.lowMaterial, mainLight, camPos);
             }
             /*
             // After UpdateCloudShadowMap has been called

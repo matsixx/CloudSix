@@ -334,7 +334,7 @@ namespace CloudSix.Source
             CustomCloudController.windOffset = Vector4.zero;
         }
 
-        public static void UpdateCloudShadowMap(Material cloudMat, Vector3 lightDir, Vector3 camPos)
+        public static void UpdateCloudShadowMap(Material cloudMat, Light mainLight, Vector3 camPos)
         {
             //Plugin.MyLog.LogInfo($"UpdateShadow: lightDir={lightDir}, sunY={lightDir.y}");
             if (shadowMaterial == null || cloudMat == null)
@@ -342,9 +342,7 @@ namespace CloudSix.Source
                 Plugin.MyLog.LogWarning($"UpdateCloudShadowMap skipped: shadowMat={shadowMaterial != null}, cloudMat={cloudMat != null}");
                 return;
             }
-            //if (sunDir.y < 0.05f) return;
 
-            // Mirror cloud material params
             shadowMaterial.SetTexture("_CloudNoise3D", cloudMat.GetTexture("_CloudNoise3D"));
             shadowMaterial.SetVector("_NoiseTiling", cloudMat.GetVector("_NoiseTiling"));
             shadowMaterial.SetVector("_WindOffset", cloudMat.GetVector("_WindOffset"));
@@ -372,12 +370,16 @@ namespace CloudSix.Source
             shadowMaterial.SetFloat("_DetailErosion", cloudMat.GetFloat("_DetailErosion"));
             shadowMaterial.SetFloat("_CurlTiling", cloudMat.GetFloat("_CurlTiling"));
             shadowMaterial.SetFloat("_CurlStrength", cloudMat.GetFloat("_CurlStrength"));
+            shadowMaterial.SetFloat("_Extinction", cloudMat.GetFloat("_Extinction"));
 
-            shadowMaterial.SetVector("_ShadowSunDir", lightDir);
+            shadowMaterial.SetVector("_ShadowSunDir", -mainLight.transform.forward);
             shadowMaterial.SetVector("_ShadowCamPos", camPos);
             shadowMaterial.SetFloat("_ShadowMapSize", 5000f);
             shadowMaterial.SetFloat("_ShadowSteps", 16f);
-            shadowMaterial.SetFloat("_ShadowDensityScale", 1f);
+            shadowMaterial.SetFloat("_ShadowDensityScale", 0.3f);
+
+            shadowMaterial.SetVector("_ShadowLightRight", mainLight.transform.right);
+            shadowMaterial.SetVector("_ShadowLightUp", mainLight.transform.up);
 
             Graphics.Blit(null, cloudShadowMap, shadowMaterial);
         }

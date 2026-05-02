@@ -14,6 +14,10 @@ namespace CloudSix.Source
         // Bonus
         public static ConfigEntry<bool> EyeAdaptation;
 
+        // Wind
+        public static ConfigEntry<float> WindSpeedMin;
+        public static ConfigEntry<float> WindSpeedMax;
+
         // Performance
         public static ConfigEntry<int> PrimarySteps;
         public static ConfigEntry<int> LightSteps;
@@ -84,18 +88,23 @@ namespace CloudSix.Source
             EyeAdaptation = config.Bind("Bonus", "Disable Eye Adaptation", true, "Disables eye adaptation if set to true (requires reset of raid or client)");
             DisableEyeAdaptation.IsEnabled = EyeAdaptation.Value;
 
+            WindSpeedMin = config.Bind("Wind", "Min Wind Speed", 0.001f,
+                Adv("Minimum cloud wind speed", new AcceptableValueRange<float>(0.0001f, 0.01f)));
+            WindSpeedMax = config.Bind("Wind", "Max Wind Speed", 0.002f,
+                Adv("Maximum cloud wind speed", new AcceptableValueRange<float>(0.0001f, 0.01f)));
+
             // Performance (always visible)
             PrimarySteps = config.Bind("Performance", "Primary Steps", 64,
                 new ConfigDescription("Ray march steps for clouds (higher = better quality, worse performance)", new AcceptableValueRange<int>(1, 64)));
             LightSteps = config.Bind("Performance", "Light Steps", 6,
-                new ConfigDescription("Steps for light marching through clouds", new AcceptableValueRange<int>(1, 16)));
+                new ConfigDescription("Steps for light marching through clouds", new AcceptableValueRange<int>(1, 6)));
             Resolution = config.Bind("Performance", "Cloud Resolution", CloudRenderer.CloudResolution.Half, "Full = best quality, Half = best performance");
 
             // Bonus steps (advanced)
             BonusPrimarySteps = config.Bind("Performance", "Bonus Primary Steps", 0,
-                Adv("Extra primary steps added on top of base (up to 256 total)", new AcceptableValueRange<int>(0, 192)));
+                Adv("Extra primary steps added on top of base", new AcceptableValueRange<int>(0, 192)));
             BonusLightSteps = config.Bind("Performance", "Bonus Light Steps", 0,
-                Adv("Extra light steps added on top of base (up to 32 total)", new AcceptableValueRange<int>(0, 16)));
+                Adv("Extra light steps added on top of base", new AcceptableValueRange<int>(0, 16)));
 
             // Shape (advanced)
             DensityMultiplier = config.Bind("Cloud Shape", "Density Multiplier", 1f,
@@ -104,18 +113,18 @@ namespace CloudSix.Source
                 Adv("Horizontal noise tiling", new AcceptableValueRange<float>(0.01f, 5f)));
             NoiseTilingY = config.Bind("Cloud Shape", "Noise Tiling Y", 1.8f,
                 Adv("Vertical noise tiling", new AcceptableValueRange<float>(0.01f, 2f)));
-            DetailTiling = config.Bind("Cloud Shape", "Detail Tiling", 30f,
+            DetailTiling = config.Bind("Cloud Shape", "Detail Tiling", 28f,
                 Adv("3D detail noise tiling", new AcceptableValueRange<float>(1f, 40f)));
-            DetailErosion = config.Bind("Cloud Shape", "Detail Erosion", 0.15f,
+            DetailErosion = config.Bind("Cloud Shape", "Detail Erosion", 0.17f,
                 Adv("Fine detail erosion strength", new AcceptableValueRange<float>(0f, 1f)));
-            BaseInversion = config.Bind("Cloud Shape", "Base Inversion", 0.2f,
-                Adv("-1 = inverted worley at base, 0 = minimal, 1 = normal worley erosion", new AcceptableValueRange<float>(-4f, 10f)));
-            CurlStrength = config.Bind("Cloud Shape", "Curl Strength", 0.25f,
+            BaseInversion = config.Bind("Cloud Shape", "Base Inversion", 0.3f,
+                Adv("0 = no inversion, 1 = inverted worley on bottom of cloud", new AcceptableValueRange<float>(0f, 1f)));
+            CurlStrength = config.Bind("Cloud Shape", "Curl Strength", 0.20f,
                 Adv("Curl noise strength for turbulent edges", new AcceptableValueRange<float>(0f, 1f)));
             CurlTiling = config.Bind("Cloud Shape", "Curl Tiling", 0.5f,
                 Adv("Curl noise tiling", new AcceptableValueRange<float>(0.1f, 5f)));
             BaseWispiness = config.Bind("Cloud Shape", "Base Wispiness", 0.35f,
-                Adv("Wispiness at cloud base (0 = solid, 1 = wispy)", new AcceptableValueRange<float>(0f, 1f)));
+                Adv("Wispiness at cloud base (0 = wispy, 1 = solid)", new AcceptableValueRange<float>(0f, 1f)));
             DensitySharpness = config.Bind("Cloud Shape", "Density Softness", 0.4f,
                 Adv("Softness of density falloff (higher = softer edges, lower = sharper clouds)", new AcceptableValueRange<float>(0.1f, 5f)));
             WorldScale = config.Bind("Cloud Shape", "World Scale", 0.0001f,
@@ -124,20 +133,20 @@ namespace CloudSix.Source
             //  Adv("Overall cloud coverage", new AcceptableValueRange<float>(0.1f, 3f)));
 
             // Lighting (advanced)
-            Extinction = config.Bind("Cloud Lighting", "Extinction", 70f,
+            Extinction = config.Bind("Cloud Lighting", "Extinction", 50f,
                 Adv("Beer-Lambert extinction", new AcceptableValueRange<float>(0.001f, 100f)));
             LightDensityScale = config.Bind("Cloud Lighting", "Light March Density", 1f,
                 Adv("Density scale for light march", new AcceptableValueRange<float>(0.01f, 20f)));
-            ScatterForward = config.Bind("Cloud Lighting", "Forward Scatter", 0.99f,
+            ScatterForward = config.Bind("Cloud Lighting", "Forward Scatter", 0.90f,
                 Adv("Silver lining strength", new AcceptableValueRange<float>(0f, 0.99f)));
             ScatterBack = config.Bind("Cloud Lighting", "Back Scatter", 0.3f,
                 Adv("Back-lit scatter", new AcceptableValueRange<float>(0f, 0.99f)));
             ScatterMix = config.Bind("Cloud Lighting", "Scatter Blend", 0.75f,
                 Adv("Forward vs back blend", new AcceptableValueRange<float>(0f, 1f)));
-            AmbientStrength = config.Bind("Cloud Lighting", "Ambient Strength", 0.80f,
+            AmbientStrength = config.Bind("Cloud Lighting", "Ambient Strength", 0.50f,
                 Adv("Fill light in shadows", new AcceptableValueRange<float>(0f, 1f)));
             MultiScatter = config.Bind("Cloud Lighting", "Multi-Scatter", 30f,
-                Adv("Fake bounce light", new AcceptableValueRange<float>(0f, 100f)));
+                Adv("Fake inner bounce light", new AcceptableValueRange<float>(0f, 100f)));
             //SunIntensity = config.Bind("Cloud Lighting", "Sun Intensity", 1f,
              //   Adv("Intensity of sun when viewed through clouds", new AcceptableValueRange<float>(0f, 5f)));
 
@@ -154,9 +163,9 @@ namespace CloudSix.Source
             //    Adv("High cloud coverage amount", new AcceptableValueRange<float>(0f, 1f)));
             HighCloudOpacity = config.Bind("High Clouds", "Opacity", 1f,
                 Adv("High cloud opacity", new AcceptableValueRange<float>(0f, 1f)));
-            HighCloudTiling = config.Bind("High Clouds", "Tiling", 0.45f,
+            HighCloudTiling = config.Bind("High Clouds", "Tiling", 0.35f,
                 Adv("High cloud noise scale", new AcceptableValueRange<float>(0.1f, 5f)));
-            HighCloudStretch = config.Bind("High Clouds", "Stretch", 0.38f,
+            HighCloudStretch = config.Bind("High Clouds", "Stretch", 0.52f,
                 Adv("Wispy streak stretch amount (lower = more streaky)", new AcceptableValueRange<float>(0.05f, 1f)));
         }
 
