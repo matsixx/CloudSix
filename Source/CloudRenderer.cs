@@ -148,6 +148,12 @@ namespace CloudSix.Source
             LoadCompositeMaterial();
         }
 
+        private static Vector2 RandomDirection()
+        {
+            float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+        }
+
         public static void InitializeCloudRenderers()
         {
             if (cloudInstance == null)
@@ -183,7 +189,8 @@ namespace CloudSix.Source
                     UnityEngine.Random.Range(0f, 100f),
                     UnityEngine.Random.Range(0f, 100f)
                 );
-                
+
+                CustomCloudController.lastWindDirection = RandomDirection();
             }
         }
 
@@ -376,7 +383,7 @@ namespace CloudSix.Source
             shadowMaterial.SetVector("_ShadowCamPos", camPos);
             shadowMaterial.SetFloat("_ShadowMapSize", 5000f);
             shadowMaterial.SetFloat("_ShadowSteps", 16f);
-            shadowMaterial.SetFloat("_ShadowDensityScale", 0.3f);
+            shadowMaterial.SetFloat("_ShadowDensityScale", CloudConfig.TerrainShadowDensity.Value);
 
             shadowMaterial.SetVector("_ShadowLightRight", mainLight.transform.right);
             shadowMaterial.SetVector("_ShadowLightUp", mainLight.transform.up);

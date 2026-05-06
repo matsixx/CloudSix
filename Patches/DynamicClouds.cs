@@ -19,7 +19,7 @@ namespace CloudSix.Patches
         private static float frontDirection = 0f;
         private static float frontTargetDistance = 0f;
         private static float frontCurrentDistance = 0f;
-
+        public static bool EyeAdaptationIsEnabled = true;
         protected override MethodBase GetTargetMethod()
         {
             return AccessTools.Method(typeof(WeatherController), nameof(WeatherController.LateUpdate));
@@ -43,6 +43,18 @@ namespace CloudSix.Patches
             }
             if (fpsCam == null)
                 return;
+
+            if (CloudConfig.EyeAdaptation.Value)
+            {
+                fpsCam.GetComponent<PrismEffects>().exposureLowerLimit = CloudConfig.WorldExposure.Value;
+                fpsCam.GetComponent<PrismEffects>().exposureUpperLimit = CloudConfig.WorldExposure.Value;
+            }
+            else
+            {
+                fpsCam.GetComponent<PrismEffects>().exposureLowerLimit = -6;
+                fpsCam.GetComponent<PrismEffects>().exposureUpperLimit = 6;
+            }
+            
 
             var todSky = MonoBehaviourSingleton<TOD_Sky>.Instance;
             CloudRenderer.SetupCloudCommandBuffer(fpsCam, opticCam);

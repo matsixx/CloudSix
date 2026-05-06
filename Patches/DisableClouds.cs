@@ -1,4 +1,5 @@
-﻿using EFT.EnvironmentEffect;
+﻿using CloudSix.Source;
+using EFT.EnvironmentEffect;
 using EFT.Rendering.Clouds;
 using HarmonyLib;
 using SPT.Reflection.Patching;
@@ -6,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using UnityEngine;
 
 namespace CloudSix.Patches
 {
@@ -22,6 +24,7 @@ namespace CloudSix.Patches
             return false;
         }
     }
+    
     internal class DisableEyeAdaptation : ModulePatch
     {
         protected override MethodBase GetTargetMethod()
@@ -32,13 +35,22 @@ namespace CloudSix.Patches
         public static bool IsEnabled = true;
 
         [PatchPrefix]
-        static void Prefix(EnvironmentManager __instance)
+        static bool Prefix(EnvironmentManager __instance)
         {
+            DisableEyeAdaptation.IsEnabled = CloudConfig.EyeAdaptation.Value;
+
             if (!IsEnabled)
-                return;
+                return true;
+            
+            if (__instance.EnableLongShadowsCorrection)
+            {
+                QualitySettings.shadowDistance = __instance.method_2() * __instance.Single_0;
+            }
 
             __instance.PrismExposureOffset = 0.23f;
             __instance.PrismExposureSpeed = 0f;
+            
+            return false;
         }
     }
 }

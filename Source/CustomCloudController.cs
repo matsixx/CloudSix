@@ -12,16 +12,12 @@ namespace CloudSix.Source
         public static Vector3 windOffset = Vector3.zero;
         public static Vector3 macroOffset = Vector3.zero;
         private static float smoothedWindSpeed = 0.0f;
-        private static Vector2 lastWindDirection = RandomDirection();
-        private static float macroWindFactor = 0.08f;
+        public static Vector2 lastWindDirection = Vector2.zero;
+        private static float macroWindFactor = 0.2f;
         private const float MAX_MOON_INTENSITY = 0.05f;
         public static Gradient cachedTopAmbient;
-
-        private static Vector2 RandomDirection()
-        {
-            float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
-            return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-        }
+        public static float DesaturationStrength = 1.3f;
+        public static float NightAmbientMultiplier = 0.4f;
 
         public static void UpdateWind(Vector2 windVector)
         {
@@ -72,26 +68,25 @@ namespace CloudSix.Source
 
             float t01 = sunHeight * 0.5f + 0.5f;
             Color ambient = cachedTopAmbient.Evaluate(t01);
-
             var weather = WeatherController.Instance;
             if (weather != null)
             {
-                float normalizedCloudiness = (weather.WeatherCurve.Cloudiness + 1f) * 0.5f;
+                float rawCloud = weather.WeatherCurve.Cloudiness;
+                float normCloud = (rawCloud + 1f) * 0.5f;
+                float desat = Mathf.Clamp01(normCloud * DesaturationStrength);
 
-                float boostStart = 0.3f;
-                float boostEnd = 0.7f;
-                float boostT = Mathf.Clamp01(Mathf.InverseLerp(boostStart, boostEnd, normalizedCloudiness));
-
-                float dayMask = Mathf.Clamp01(sunHeight);
-                boostT *= dayMask;
-
-                Color overcastTint = new Color(0.75f, 0.78f, 0.82f);
-                float desaturation = boostT * 0.5f;
-                float brightness = 1.0f + boostT * 0.3f;
-
-                ambient = Color.Lerp(ambient, overcastTint, desaturation);
-                ambient *= brightness;
+                float lum = ambient.r * 0.2126f + ambient.g * 0.7152f + ambient.b * 0.0722f;
+                ambient.r = Mathf.Lerp(ambient.r, lum, desat);
+                ambient.g = Mathf.Lerp(ambient.g, lum, desat);
+                ambient.b = Mathf.Lerp(ambient.b, lum, desat);
                 ambient.a = 1f;
+
+                // Dim ambient as sun drops below horizon. 1.0 at/above horizon, NightAmbientMultiplier at -0.3 and below.
+                float nightT = Mathf.InverseLerp(-0.3f, 0.0f, sunHeight);
+                float nightFactor = Mathf.Lerp(NightAmbientMultiplier, 1.0f, nightT);
+                ambient.r *= nightFactor;
+                ambient.g *= nightFactor;
+                ambient.b *= nightFactor;
             }
 
             cloudMaterial.SetColor("_AmbientColor", ambient);
@@ -117,7 +112,7 @@ namespace CloudSix.Source
             // Moon: fades in as sun drops
             float moonT = Mathf.Clamp01(Mathf.InverseLerp(0.0f, -0.15f, sunHeight));
             moonT = moonT * moonT;
-            moonIntensity = moonT * 1.5f;
+            moonIntensity = moonT * 1f;
         }
     }
 }
