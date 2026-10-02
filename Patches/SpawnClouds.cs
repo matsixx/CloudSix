@@ -33,9 +33,9 @@ namespace CloudSix.Patches
             if (_indoorScenes.Any(s => currentMap.Contains(s, StringComparison.OrdinalIgnoreCase)))
                 return;
 
-            CloudRenderer.CleanupClouds();
-            CloudRenderer.LoadCloudPrefab();
-            CloudRenderer.InstantiateCloudPrefab();
+            VolCloudRenderer.CleanupClouds();
+            VolCloudRenderer.LoadCloudPrefab();
+            VolCloudRenderer.InstantiateCloudPrefab();
         }
     }
 }

@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ============================================================================================
+       CloudSix-FikaSync.dll — standalone FIKA co-op companion for the CloudSix mod.
+
+       Syncs the cloud field across co-op players: the HOST is the authority and broadcasts the cloud
+       seed/state; clients overwrite their local CustomCloudController values so everyone's clouds line
+       up. It references CloudSix (to read/write that state) and Fika.Core.
+
+       This DLL hard-depends on FIKA, so it only loads when FIKA is installed — SHIP IT ONLY ALONGSIDE
+       FIKA. CloudSix.dll itself stays FIKA-free (it excludes this FikaSync\ folder from its compile and
+       references nothing here), so solo players are completely unaffected.
+       ============================================================================================ -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>CloudSix-FikaSync</AssemblyName>
+    <RootNamespace>CloudSixFikaSync</RootNamespace>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <Configurations>Debug;Release;Package</Configurations>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- CloudSix already generates plugin assembly info; keep them from colliding. -->
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <!-- Reads/writes CloudSix.Source.CustomCloudController + CloudRenderer (internal types, exposed via
+       InternalsVisibleTo in the CloudSix project). Private=false: CloudSix.dll is deployed on its own. -->
+  <ItemGroup>
+    <ProjectReference Include="..\CloudSix.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Game / BepInEx / FIKA assemblies from the local libs copy (Fika.Core here is the publicized one).
+       Private=false: all provided by the game/other plugins at runtime, so don't copy them into output —
+       the only thing this project emits is CloudSix-FikaSync.dll. -->
+  <ItemGroup>
+    <Reference Include="BepInEx">
+      <HintPath>..\libs\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\libs\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>..\libs\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Comfort">
+      <HintPath>..\libs\Comfort.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Comfort.Unity">
+      <HintPath>..\libs\Comfort.Unity.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Fika.Core">
+      <HintPath>..\libs\Fika.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>..\libs\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\libs\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <!-- Auto-deploy: EVERY build (Debug or Release) copies the DLL straight into the game, so there is
+       never a stale-DLL / wrong-folder question - the game always runs whatever was built last.
+       Skipped silently when the game folder doesn't exist (e.g. building on another machine). -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="Exists('F:\SPT4.1\BepInEx\plugins\CloudSix')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="F:\SPT4.1\BepInEx\plugins\CloudSix" />
+    <Message Importance="high" Text="==&gt; CloudSix-FikaSync.dll deployed to F:\SPT4.1\BepInEx\plugins\CloudSix" />
+  </Target>
+
+</Project>
