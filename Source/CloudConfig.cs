@@ -53,6 +53,14 @@ namespace CloudSix.Source
         public static ConfigEntry<ECloudDebugView> DebugView;
 
         public static ConfigEntry<float> WorldExposure;
+        public static ConfigEntry<float> EyeStrength;
+        public static ConfigEntry<float> EyeMaxBrighten;
+        public static ConfigEntry<float> EyeMaxDarken;
+        public static ConfigEntry<float> EyeSkyInfluence;
+        public static ConfigEntry<float> EyeSpeed;
+        public static ConfigEntry<bool> EyeLog;
+        public static ConfigEntry<float> EyeDaylight;
+        public static ConfigEntry<bool> EyeMeasureNow;
 
         // Terrain Shadow
         public static ConfigEntry<float> TerrainShadowDensity;
@@ -217,10 +225,29 @@ namespace CloudSix.Source
             DisableUltimateBloom = config.Bind("Bonus", "Disable UltimateBloom", true,
                 Adv("Turn off Ultimate Bloom camera effect (can conflict with godrays)"));
 
-            EyeAdaptation = config.Bind("Bonus", "Disable Eye Adaptation", true, "Disables eye adaptation if enabled");           
+            EyeAdaptation = config.Bind("Bonus", "Disable Eye Adaptation", false, "On = fixed exposure (World Exposure). Off = CloudSix eye adaptation: interiors and dark areas brighten, bright views dim, around World Exposure. It replaces the game's own, which metered the sky and crushed the image under the custom sky.");
 
             WorldExposure = config.Bind("Bonus", "World Exposure", 0.8f,
                 new ConfigDescription("Brighten/darken the exposure of your view", new AcceptableValueRange<float>(0, 2)));
+
+            // Eye adaptation (only when Disable Eye Adaptation is off)
+            EyeStrength = config.Bind("Eye Adaptation", "Adaptation Strength", 0.5f,
+                new ConfigDescription("How much of a brightness difference the eye makes up for. 0 = none (fixed exposure), 1 = fully evens every view out to the same brightness. 0.5 brightens a room that is 4x darker than outdoors by 2x.", new AcceptableValueRange<float>(0f, 1f)));
+            EyeMaxBrighten = config.Bind("Eye Adaptation", "Max Brighten Stops", 1f,
+                new ConfigDescription("The most the view may brighten in dark places, in stops (1 stop = 2x): 1 = up to twice as bright.", new AcceptableValueRange<float>(0f, 3f)));
+            EyeMaxDarken = config.Bind("Eye Adaptation", "Max Darken Stops", 1f,
+                new ConfigDescription("The most the view may dim when looking at something bright, in stops (1 stop = half).", new AcceptableValueRange<float>(0f, 3f)));
+            EyeSkyInfluence = config.Bind("Eye Adaptation", "Sky Influence", 0.7f,
+                new ConfigDescription("How much the sky counts when measuring brightness, next to the ground and objects (1 = same as everything else, 0 = ignored). Low keeps the sky from dimming the whole view when you look up.", new AcceptableValueRange<float>(0f, 1f)));
+            EyeSpeed = config.Bind("Eye Adaptation", "Adaptation Speed", 1f,
+                new ConfigDescription("How fast the eye adjusts. At 1 it dims in about a third of a second and brightens in about a second.", new AcceptableValueRange<float>(0.1f, 4f)));
+            EyeLog = config.Bind("Eye Adaptation", "Log Eye Adaptation", false,
+                Adv("Write one line a second to the BepInEx log: measured brightness, sky share, and the exposure used. For tuning."));
+            EyeDaylight = config.Bind("Eye Adaptation", "Daylight Brightness", -2f,
+                new ConfigDescription("What the meter reads for an ordinary daytime outdoor view (log2 of luminance; -2 = clear sky mid-morning on Customs). Views this bright get exactly World Exposure; darker ones (interiors, dawn, dusk, night) brighten and brighter ones dim, by Adaptation Strength within the Max limits - the same view always gets the same exposure. It never changes by itself: type a value, or use Measure Daylight Brightness Now. Lower = everything that adapts is brighter, higher = darker.",
+                    new AcceptableValueRange<float>(-6f, 2f)));
+            EyeMeasureNow = config.Bind("Eye Adaptation", "Measure Daylight Brightness Now", false,
+                Adv("Tick while outdoors in daylight, looking around normally (eye adaptation on): the next 10 seconds of readings become Daylight Brightness. Unticks itself."));
 
             CoverageMinTransitionTime = config.Bind("Weather", "Min Cloud Transition Time (sec)", 200f,
                 new ConfigDescription("Slew-rate limit on cloud coverage: the fewest real seconds a full " +
@@ -241,7 +268,7 @@ namespace CloudSix.Source
                 new ConfigDescription("_CloudDensity for partly cloudy.", new AcceptableValueRange<float>(0.5f, 3.5f)));
             CloudyDensity = config.Bind("Weather", "Density - Cloudy", 1.5f,
                 new ConfigDescription("_CloudDensity for a cloudy day.", new AcceptableValueRange<float>(0.5f, 3.5f)));
-            HeavyDensity = config.Bind("Weather", "Density - Heavy", 1.75f,
+            HeavyDensity = config.Bind("Weather", "Density - Heavy", 2.1f,
                 new ConfigDescription("_CloudDensity for heavy cloud coverage.", new AcceptableValueRange<float>(0.5f, 3.5f)));
             OvercastDensity = config.Bind("Weather", "Density - Overcast", 2.1f,
                 new ConfigDescription("_CloudDensity for full overcast (rainy). Higher just looks the same.", new AcceptableValueRange<float>(0.5f, 3.5f)));
@@ -285,17 +312,17 @@ namespace CloudSix.Source
                 "combinations of Flip X / Flip Y to find the one where cloud shadows sit correctly vs the sun.");
 
             // Performance (always visible)
-            PrimarySteps = config.Bind("Performance", "Primary Steps", 128,
+            PrimarySteps = config.Bind("Performance", "Primary Steps", 50,
                 new ConfigDescription("Ray march steps for clouds (higher = better quality, worse performance)", new AcceptableValueRange<int>(1, 256)));
             LightSteps = config.Bind("Performance", "Light Steps", 6,
                 new ConfigDescription("Steps for light marching through clouds", new AcceptableValueRange<int>(1, 6)));
             Resolution = config.Bind("Performance", "Cloud Resolution", VolCloudRenderer.CloudResolution.Half, "Full = best quality, Half = best performance");
             TemporalMode = config.Bind("Performance", "Temporal Mode", VolCloudRenderer.CloudTemporalMode.SkyDome,
                 "Switch between temporal modes or turn off. Skydome looks and performs best.");
-            SkyDomeQuality = config.Bind("Performance", "SkyDome Quality", ESkyDomeQuality.Medium,
+            SkyDomeQuality = config.Bind("Performance", "SkyDome Quality", ESkyDomeQuality.Low,
                 "SKYDOME MODE ONLY: sharpness of the direction-anchored sky map (screen resolution / " +
-                "Cloud Resolution don't affect SkyDome — this does). Low ≈ 1024px map, Medium ≈ 1536 " +
-                "(half-res density, the default), High ≈ 2048, Ultra ≈ 3072 (full-res density). Higher = " +
+                "Cloud Resolution don't affect SkyDome — this does). Low ≈ 1024px map (the default), Medium ≈ 1536 " +
+                "(half-res density), High ≈ 2048, Ultra ≈ 3072 (full-res density). Higher = " +
                 "sharper clouds but a bigger per-frame bake; the map re-fills over ~1s when you change it. " +
                 "Ignored in Nubis/Blend/Off.");
             TemporalSmoothing = config.Bind("Performance", "Temporal Smoothing", 0f,
@@ -579,7 +606,7 @@ namespace CloudSix.Source
                 "(Hillaire 2020) sky computed from the time of day and weather. Off = vanilla sky.");
             PublishSkyReflections = config.Bind("Sky", "Publish Sky For Reflections", true,
                 "Bake the displayed sky (atmosphere + clouds + sun/moon) into a small directional map " +
-                "each frame and publish it for other mods to sample. SSRSix uses it so water and puddles " +
+                "each frame and publish it for other mods to sample. ReflectSix uses it so water and puddles " +
                 "reflect the LIVE sky — actual clouds, correct time of day — instead of the static baked " +
                 "probe. Negligible cost (one 512x256 blit); needs Custom Sky and the SkyDome cloud mode. " +
                 "Does nothing visible unless a consumer mod is installed.");

@@ -131,9 +131,33 @@ namespace CloudSix.Source
                 material.SetTexture("_AtmMsLut", msLut);
             }
 
-            Graphics.Blit(null, skyViewLut, material, PassSkyView);
+            // The sky-view bake reads only the sun/moon directions, moon light, camera altitude and composition
+            // (no time-animated input - the dither and twinkle are in the per-eye display pass). Tarkov's sun moves
+            // ~0.03 deg/s, so rebaking every frame redid the same sky; now only when an input has moved enough to
+            // matter (0.02 deg of sun = far below one 8-bit step of sky colour), plus a safety rebake every second.
+            float camAltKm = Mathf.Clamp(cam.transform.position.y * 0.001f, 0.001f, 60f);
+            float mieG = Cfg(CloudConfig.AtmMieG, 0.8f);
+            float step = skyViewSunStepDeg * Mathf.Deg2Rad;
+            bool due = skyViewSunStepDeg <= 0f || skyViewLut != _bakedLut || sig != _bakedSig || mieG != _bakedMieG
+                       || (sunDir - _bakedSun).sqrMagnitude > step * step || (moonDir - _bakedMoon).sqrMagnitude > step * step
+                       || Mathf.Abs(moonIll - _bakedMoonIll) > 0.0005f || Mathf.Abs(camAltKm - _bakedAltKm) > 0.002f
+                       || Time.frameCount - _bakedFrame >= skyViewMaxFrames || Time.frameCount < _bakedFrame;
+            if (due)
+            {
+                Graphics.Blit(null, skyViewLut, material, PassSkyView);
+                _bakedLut = skyViewLut; _bakedSig = sig; _bakedMieG = mieG; _bakedSun = sunDir; _bakedMoon = moonDir;
+                _bakedMoonIll = moonIll; _bakedAltKm = camAltKm; _bakedFrame = Time.frameCount;
+            }
             material.SetTexture("_AtmSkyView", skyViewLut);
         }
+
+        // Sky-view rebake gate (0 deg = rebake every frame, the old way).
+        public static float skyViewSunStepDeg = 0.02f;
+        public static int skyViewMaxFrames = 90;
+        private static RenderTexture _bakedLut;
+        private static float _bakedSig = float.NaN, _bakedMieG, _bakedMoonIll, _bakedAltKm;
+        private static Vector3 _bakedSun, _bakedMoon;
+        private static int _bakedFrame = -100000;
 
         // Draw the sky on the cloud dome renderer (per-eye correct via the eye's matrices). Recorded FIRST in
         // the command buffer so the clouds composite on top of it.

@@ -47,17 +47,16 @@ namespace CloudSix.Patches
 
             HandleUltimateBloom(fpsCam);
 
-            if (CloudConfig.EyeAdaptation.Value)
+            // Prism applies exposure = clamp(middleGrey / average, lower, upper), so lower = upper pins it to our
+            // value: the fixed World Exposure, or CloudSix's own eye adaptation around it.
+            var prism = EyeAdaptation.PrismFor(fpsCam);
+            if (prism != null)
             {
-                fpsCam.GetComponent<PrismEffects>().exposureLowerLimit = CloudConfig.WorldExposure.Value;
-                fpsCam.GetComponent<PrismEffects>().exposureUpperLimit = CloudConfig.WorldExposure.Value;
+                float exposure = EyeAdaptation.Active ? EyeAdaptation.Update() : CloudConfig.WorldExposure.Value;
+                prism.exposureLowerLimit = exposure;
+                prism.exposureUpperLimit = exposure;
             }
-            else
-            {
-                fpsCam.GetComponent<PrismEffects>().exposureLowerLimit = -6;
-                fpsCam.GetComponent<PrismEffects>().exposureUpperLimit = 6;
-            }
-            
+
 
             var todSky = MonoBehaviourSingleton<TOD_Sky>.Instance;
 
@@ -159,7 +158,7 @@ namespace CloudSix.Patches
             SkyAtmosphere.Bake(fpsCam, todSky);
 
             // Publish the complete displayed sky (atmosphere + clouds + discs) as a small equirect global
-            // for other mods — SSRSix samples it on reflection-ray misses so water mirrors the LIVE sky.
+            // for other mods — ReflectSix samples it on reflection-ray misses so water mirrors the LIVE sky.
             // Needs SkyDome mode (the cloud latlong map) AND the custom sky (the sky-view LUT it
             // composites); placed after Bake so the LUT is this frame's.
             if (tMode == VolCloudRenderer.CloudTemporalMode.SkyDome && SkyAtmosphere.Enabled &&

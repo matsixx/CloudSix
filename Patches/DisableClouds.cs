@@ -76,8 +76,24 @@ namespace CloudSix.Patches
 
             __instance.PrismExposureOffset = 0.23f;
             __instance.PrismExposureSpeed = 0f;
-            
+
             return false;
+        }
+    }
+
+    // Prism's metering step: borrow the HDR frame it is about to measure for CloudSix's own eye adaptation.
+    // Prism still runs its own (its result is overridden through the exposure limits).
+    internal class EyeAdaptationMeter : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(PrismEffects), nameof(PrismEffects.HandleExposure));
+        }
+
+        [PatchPrefix]
+        static void Prefix(PrismEffects __instance, RenderTexture source)
+        {
+            EyeAdaptation.Meter(__instance, source);
         }
     }
 }

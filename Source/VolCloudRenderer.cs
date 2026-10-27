@@ -81,6 +81,9 @@ namespace CloudSix.Source
         private static Shader shadowShader;
         public static RenderTexture cloudShadowMap;
         private static int shadowMapSize = 1024;
+        // Every-Nth-frame redraws of the cloud-shadow cookie and the reflection sky (1 = every frame, the old way).
+        public static int shadowMapEveryN = 4;
+        public static int skyReflEveryN = 4;
         private static bool shadowShaderErrorLogged;
         // World meters the sun cookie projects over. Shared by the game-side cookie-size patch and our
         // direct assignment so the two writers can never flip-flop. (Deliberately NOT ShadowWorldSize —
@@ -97,7 +100,7 @@ namespace CloudSix.Source
         // Temporal accumulation (main camera only): each frame's cloud render is resolved against last
         // frame's result (CloudComposite pass 1: direction reprojection + neighborhood clamp), so the
         // march's animated golden-ratio dither (_DitherPhase) averages into clean clouds at low step
-        // counts — same recipe as FogSix/SSRSix. Ping-pong pair; deliberately SHARED across VR eyes:
+        // counts — same recipe as FogSix/ReflectSix. Ping-pong pair; deliberately SHARED across VR eyes:
         // clouds at dome distance have zero stereo disparity, so one history serves both.
         private static RenderTexture histRead, histWrite;
         private static bool histValid;
@@ -387,11 +390,11 @@ namespace CloudSix.Source
             }
         }
 
-        // ---- Reflection sky publish (consumed by SSRSix via the global _SsrSkyReflMap) ----
+        // ---- Reflection sky publish (consumed by ReflectSix via the global _SsrSkyReflMap) ----
         // Bakes the complete DISPLAYED sky — atmosphere + accumulated clouds + sun/moon discs, in scene
         // radiance units — into a small upper-hemisphere equirect map and publishes it as a shader GLOBAL,
         // so other mods can sample the live sky by direction with zero assembly dependency (an interested
-        // consumer checks GetGlobalTexture != null; nobody listening = one cheap 512x256 blit). SSRSix
+        // consumer checks GetGlobalTexture != null; nobody listening = one cheap 512x256 blit). ReflectSix
         // reflects it on ray miss: puddles mirror the actual clouds instead of a stale baked probe.
         // SkyDome-mode only (the latlong cloud map this composites is only maintained there).
         private static RenderTexture skyReflMap;
@@ -399,11 +402,19 @@ namespace CloudSix.Source
         public static void PublishSkyReflMap()
         {
             if (lowMaterial == null || skyMap == null) return;
-            if (skyReflMap == null)
+            bool freshRefl = skyReflMap == null;
+            // Every Nth frame only (offset half a cycle from the shadow cookie): a texel here is ~0.7 deg of sky and
+            // the clouds move <0.01 deg a frame, so a reflection 3 frames old shows nothing different.
+            if (!freshRefl && skyReflEveryN > 1 && Time.frameCount % skyReflEveryN != skyReflEveryN / 2)
+            {
+                Shader.SetGlobalTexture("_SsrSkyReflMap", skyReflMap);
+                return;
+            }
+            if (freshRefl)
             {
                 skyReflMap = new RenderTexture(512, 256, 0, RenderTextureFormat.ARGBHalf)
                 {
-                    filterMode = FilterMode.Trilinear,    // consumers fetch lobe-matched mips (SSRSix specular AA)
+                    filterMode = FilterMode.Trilinear,    // consumers fetch lobe-matched mips (ReflectSix specular AA)
                     useMipMap = true,
                     autoGenerateMips = false,             // baked once per publish, below
                     wrapModeU = TextureWrapMode.Repeat,   // bilinear crosses the azimuth seam
@@ -413,7 +424,7 @@ namespace CloudSix.Source
             Graphics.Blit(null, skyReflMap, lowMaterial, PassSkyRefl);
             // Mip chain = the sky pre-integrated over widening cones: a rough/varied reflector must fetch
             // an AVERAGE of the sky over its lobe, and a mip-0 fetch through a detail normal is a white-
-            // speck generator (SSRSix picks the mip from its effective roughness).
+            // speck generator (ReflectSix picks the mip from its effective roughness).
             skyReflMap.GenerateMips();
             Shader.SetGlobalTexture("_SsrSkyReflMap", skyReflMap);
         }
@@ -634,7 +645,7 @@ namespace CloudSix.Source
             // VR MULTIPASS: this fires once PER EYE (the camera renders twice per frame), and each eye
             // rasterizes with its own view matrix and an OFF-AXIS ASYMMETRIC projection that the mono
             // cam.worldToCameraMatrix/projectionMatrix do NOT describe. The game-wide established pattern
-            // (AmplifyOcclusion, SSRSix, the upscaler patches) is stereoActiveEye + the GetStereo*
+            // (AmplifyOcclusion, ReflectSix, the upscaler patches) is stereoActiveEye + the GetStereo*
             // getters. Uniforms resolve at CB execution and each fire immediately precedes its own eye's
             // render, so the values set here are per-eye correct.
             // NON-jittered projection, critically: TAA/FSR/DLSS tilt the raw projection by a sub-pixel
@@ -678,7 +689,7 @@ namespace CloudSix.Source
             // error cancels — bitwise-equal matrices (still camera) give an EXACTLY zero delta.
             temporalMaterial.SetMatrix("_CloudCurVP", vp);
             // Eye position derived FROM THE VIEW MATRIX, never transform.position: EFT's camera rig keeps
-            // the two DIFFERENT (the TOD-fog "weird eyePos" finding — FogSix/SSRSix already derive it this
+            // the two DIFFERENT (the TOD-fog "weird eyePos" finding — FogSix/ReflectSix already derive it this
             // way). The anchor math bends every ray through this point.
             temporalMaterial.SetVector("_CloudCamPos", view.inverse.MultiplyPoint3x4(Vector3.zero));
 
@@ -808,6 +819,7 @@ namespace CloudSix.Source
         {
             // Put Tarkov's scene light/ambient gradients back if we overrode them (raid end).
             CustomCloudController.RestoreGroundLighting();
+            EyeAdaptation.Reset();
 
             if (mainCloudCommandBuffer != null)
             {
@@ -901,12 +913,20 @@ namespace CloudSix.Source
                 UnityEngine.Object.Destroy(cloudShadowMap);
                 cloudShadowMap = null;
             }
-            if (cloudShadowMap == null)
+            bool freshMap = cloudShadowMap == null;
+            if (freshMap)
             {
                 cloudShadowMap = new RenderTexture(wantRes, wantRes, 0, RenderTextureFormat.ARGB32)
                 { name = "CloudSix Shadow Map", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear };
                 cloudShadowMap.Create();
             }
+
+            // Redraw every Nth frame only: a cookie texel spans Shadow World Size / resolution (29 m at 15 km / 512)
+            // and the clouds cross ~0.006 of one per frame at max wind (~15 m/s), so 4 frames = 0.02 texel - nothing
+            // to see. Content and its placement (the cloudMat feed at the end) skip together, so the godray lookup
+            // always matches the cookie it reads. Offset from the reflection publish so the two never share a frame.
+            if (!freshMap && shadowMapEveryN > 1 && Time.frameCount % shadowMapEveryN != 0)
+                return;
 
             shadowMaterial.SetTexture("_CloudNoise3D", cloudMat.GetTexture("_CloudNoise3D"));
             shadowMaterial.SetVector("_NoiseTiling", cloudMat.GetVector("_NoiseTiling"));
