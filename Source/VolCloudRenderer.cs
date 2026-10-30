@@ -57,8 +57,9 @@ namespace CloudSix.Source
         // Per-refresh EMA toward each texel's previous map value. With the dither phase stepping once
         // per refresh cycle, this averages the march's banding noise out of the map (the static grain a
         // frozen dither bakes in). Higher = smoother clouds but slower response to weather/sun changes
-        // (~1/(1-w) refreshes ≈ 0.4s in view at 0.6). 0 = plain replace. Live-tunable.
-        public static float skyMapBlend = 0.6f;
+        // (~1/(1-w) refreshes ≈ 1s in view at 0.85, 0.4s at 0.6). 0 = plain replace. Live-tunable.
+        // 0.85 = ~12 averaged refreshes, what a model of the overcast march needed to clear the step pattern (0.6 = ~4).
+        public static float skyMapBlend = 0.85f;
         private static int skyFillCycles;         // full-sphere refresh cycles remaining (startup/reset)
 
         // Shader pass indices

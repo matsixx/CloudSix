@@ -227,13 +227,13 @@ namespace CloudSix.Source
 
             EyeAdaptation = config.Bind("Bonus", "Disable Eye Adaptation", false, "On = fixed exposure (World Exposure). Off = CloudSix eye adaptation: interiors and dark areas brighten, bright views dim, around World Exposure. It replaces the game's own, which metered the sky and crushed the image under the custom sky.");
 
-            WorldExposure = config.Bind("Bonus", "World Exposure", 0.8f,
+            WorldExposure = config.Bind("Bonus", "World Exposure", 1f,
                 new ConfigDescription("Brighten/darken the exposure of your view", new AcceptableValueRange<float>(0, 2)));
 
             // Eye adaptation (only when Disable Eye Adaptation is off)
             EyeStrength = config.Bind("Eye Adaptation", "Adaptation Strength", 0.5f,
                 new ConfigDescription("How much of a brightness difference the eye makes up for. 0 = none (fixed exposure), 1 = fully evens every view out to the same brightness. 0.5 brightens a room that is 4x darker than outdoors by 2x.", new AcceptableValueRange<float>(0f, 1f)));
-            EyeMaxBrighten = config.Bind("Eye Adaptation", "Max Brighten Stops", 1f,
+            EyeMaxBrighten = config.Bind("Eye Adaptation", "Max Brighten Stops", 0.5f,
                 new ConfigDescription("The most the view may brighten in dark places, in stops (1 stop = 2x): 1 = up to twice as bright.", new AcceptableValueRange<float>(0f, 3f)));
             EyeMaxDarken = config.Bind("Eye Adaptation", "Max Darken Stops", 1f,
                 new ConfigDescription("The most the view may dim when looking at something bright, in stops (1 stop = half).", new AcceptableValueRange<float>(0f, 3f)));
@@ -243,7 +243,7 @@ namespace CloudSix.Source
                 new ConfigDescription("How fast the eye adjusts. At 1 it dims in about a third of a second and brightens in about a second.", new AcceptableValueRange<float>(0.1f, 4f)));
             EyeLog = config.Bind("Eye Adaptation", "Log Eye Adaptation", false,
                 Adv("Write one line a second to the BepInEx log: measured brightness, sky share, and the exposure used. For tuning."));
-            EyeDaylight = config.Bind("Eye Adaptation", "Daylight Brightness", -2f,
+            EyeDaylight = config.Bind("Eye Adaptation", "Daylight Brightness", -3f,
                 new ConfigDescription("What the meter reads for an ordinary daytime outdoor view (log2 of luminance; -2 = clear sky mid-morning on Customs). Views this bright get exactly World Exposure; darker ones (interiors, dawn, dusk, night) brighten and brighter ones dim, by Adaptation Strength within the Max limits - the same view always gets the same exposure. It never changes by itself: type a value, or use Measure Daylight Brightness Now. Lower = everything that adapts is brighter, higher = darker.",
                     new AcceptableValueRange<float>(-6f, 2f)));
             EyeMeasureNow = config.Bind("Eye Adaptation", "Measure Daylight Brightness Now", false,
@@ -270,7 +270,7 @@ namespace CloudSix.Source
                 new ConfigDescription("_CloudDensity for a cloudy day.", new AcceptableValueRange<float>(0.5f, 3.5f)));
             HeavyDensity = config.Bind("Weather", "Density - Heavy", 2.1f,
                 new ConfigDescription("_CloudDensity for heavy cloud coverage.", new AcceptableValueRange<float>(0.5f, 3.5f)));
-            OvercastDensity = config.Bind("Weather", "Density - Overcast", 2.1f,
+            OvercastDensity = config.Bind("Weather", "Density - Overcast", 2.3f,
                 new ConfigDescription("_CloudDensity for full overcast (rainy). Higher just looks the same.", new AcceptableValueRange<float>(0.5f, 3.5f)));
 
             WindSpeedMin = config.Bind("Wind", "Min Wind Speed", 0.0008f,
@@ -312,7 +312,7 @@ namespace CloudSix.Source
                 "combinations of Flip X / Flip Y to find the one where cloud shadows sit correctly vs the sun.");
 
             // Performance (always visible)
-            PrimarySteps = config.Bind("Performance", "Primary Steps", 50,
+            PrimarySteps = config.Bind("Performance", "Primary Steps", 35,
                 new ConfigDescription("Ray march steps for clouds (higher = better quality, worse performance)", new AcceptableValueRange<int>(1, 256)));
             LightSteps = config.Bind("Performance", "Light Steps", 6,
                 new ConfigDescription("Steps for light marching through clouds", new AcceptableValueRange<int>(1, 6)));
@@ -405,7 +405,7 @@ namespace CloudSix.Source
             // Lighting (advanced)
             Extinction = config.Bind("Cloud Lighting", "Extinction", 15f,
                 Adv("Beer-Lambert extinction", new AcceptableValueRange<float>(0.001f, 100f)));
-            LightDensityScale = config.Bind("Cloud Lighting", "Light March Density", 1f,
+            LightDensityScale = config.Bind("Cloud Lighting", "Light March Density", 3f,
                 Adv("Density scale for light march", new AcceptableValueRange<float>(0.01f, 20f)));
             LongShadowStrength = config.Bind("Cloud Lighting", "Cloud-on-Cloud Shadow", 0.3f,
                 Adv("Let clouds cast long shadows on OTHER clouds (distant self-shadowing toward the sun), on " +
@@ -485,13 +485,13 @@ namespace CloudSix.Source
                     new AcceptableValueRange<float>(0f, 8f)));
             AlpenStrength = config.Bind("Cloud Lighting", "Alpenglow Strength", 0f,
                 Adv("Warm low-sun glow on cloud undersides at sunrise/sunset (0 = off)", new AcceptableValueRange<float>(0f, 8f)));
-            PowderStrength = config.Bind("Cloud Lighting", "Powder Strength", 1f,
+            PowderStrength = config.Bind("Cloud Lighting", "Powder Strength", 5f,
                 Adv("Dark-edge (powder) effect strength. 0 = no dark outline around cloud edges", new AcceptableValueRange<float>(0f, 10f)));
-            PowderBase = config.Bind("Cloud Lighting", "Powder Base", 0f,
+            PowderBase = config.Bind("Cloud Lighting", "Powder Base", 0.6f,
                 Adv("How much powder shows when NOT looking toward the sun. 0 = backlit edges only (removes the always-on edge outline)", new AcceptableValueRange<float>(0f, 1f)));
-            PowderScale = config.Bind("Cloud Lighting", "Powder Detail Scale", 1.5f,
+            PowderScale = config.Bind("Cloud Lighting", "Powder Detail Scale", 9.1f,
                 Adv("Thinness of the dark edge band (higher = thinner/sharper, lower = broader/softer)", new AcceptableValueRange<float>(1f, 16f)));
-            PowderFill = config.Bind("Cloud Lighting", "Powder Fill", 0f,
+            PowderFill = config.Bind("Cloud Lighting", "Powder Fill", 0.5f,
                 Adv("Granular 'powdery' texture on the SUNLIT TOPS. Powder Strength only affects the direct " +
                     "sun term, which is nearly off on FRONT-LIT clouds (sun behind you) — so the tops there are " +
                     "carried by the smooth fill light and look creamy. This folds the fine cauliflower detail " +
@@ -513,7 +513,7 @@ namespace CloudSix.Source
                 Adv("Angular diameter of the mod's sun disc.", new AcceptableValueRange<float>(0.2f, 30f)));
             SunDiscBrightness = config.Bind("Cloud Lighting", "Sun Disc Brightness", 8f,
                 Adv("Brightness of the mod's sun disc.", new AcceptableValueRange<float>(0f, 30f)));
-            SunDiscGlow = config.Bind("Cloud Lighting", "Sun Disc Glow", 0.66f,
+            SunDiscGlow = config.Bind("Cloud Lighting", "Sun Disc Glow", 0.2f,
                 Adv("Soft halo strength around the mod's sun disc.", new AcceptableValueRange<float>(0f, 8f)));
             MoonDiscSize = config.Bind("Cloud Lighting", "Moon Disc Size (deg)", 2.2f,
                 Adv("Angular diameter of the mod's moon disc.", new AcceptableValueRange<float>(0.2f, 30f)));
@@ -591,7 +591,7 @@ namespace CloudSix.Source
                 Adv("Altitude of high cloud layer (real cirrus sit ~8000 m; higher = lit longer after sunset)", new AcceptableValueRange<float>(0.5f, 12000f)));
             //HighCloudCoverage = config.Bind("High Clouds", "Coverage", 0.8f,
             //    Adv("High cloud coverage amount", new AcceptableValueRange<float>(0f, 1f)));
-            HighCloudOpacity = config.Bind("High Clouds", "Opacity", 0.95f,
+            HighCloudOpacity = config.Bind("High Clouds", "Opacity", 0.51f,
                 Adv("High cloud opacity looking straight up (thicker toward the horizon, like real cirrus). Clearly visible cirrus are ~0.3-0.5; below ~0.1 they're sub-visible except near the sun.", new AcceptableValueRange<float>(0f, 0.95f)));
             HighCloudTiling = config.Bind("High Clouds", "Tiling", 0.4f,
                 Adv("High cloud noise scale", new AcceptableValueRange<float>(0.1f, 5f)));
@@ -619,12 +619,12 @@ namespace CloudSix.Source
             GroundLightingStrength = config.Bind("Sky", "Ground Lighting Strength", 1f,
                 Adv("How far to push the scene lighting toward our atmosphere colour. 0 = vanilla, 1 = full. " +
                     "Only when 'Ground Lighting From Sky' is on.", new AcceptableValueRange<float>(0f, 1f)));
-            AtmExposure = config.Bind("Sky", "Sky Brightness", 15f,
+            AtmExposure = config.Bind("Sky", "Sky Brightness", 8f,
                 new ConfigDescription("Overall brightness of the sky into the game's tonemapper. This is a " +
                     "CALIBRATION knob — the sky is computed in physical-ish units and scaled by this to sit " +
                     "right in the exposed image. Raise if the sky is too dark, lower if it blows out.",
                     new AcceptableValueRange<float>(0f, 200f)));
-            AtmRayleigh = config.Bind("Sky", "Rayleigh (Blue) Strength", 2f,
+            AtmRayleigh = config.Bind("Sky", "Rayleigh (Blue) Strength", 3f,
                 Adv("Air-molecule scattering — the daytime blue and the red sunset. Higher = deeper blue / " +
                     "more vivid sunsets.", new AcceptableValueRange<float>(0f, 4f)));
             AtmMie = config.Bind("Sky", "Mie (Haze) Strength", 1f,

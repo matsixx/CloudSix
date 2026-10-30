@@ -8,7 +8,7 @@ After over analyzing my clouds in VR, I wrote a custom over engineered volumetri
 
 These clouds wouldn't have been possible without the paper from Guerrilla Games on how they did the clouds in Horizon Zero Dawn - https://www.guerrilla-games.com/read/the-real-time-volumetric-cloudscapes-of-horizon-zero-dawn
 
-My main focus with these clouds was keeping them visually stable and very optimized because I wanted them to work well in VR too. They could still use some improving, a lot of improving can be done just with the values I locked behind in advanced settings. You can also increase the primary steps/light steps higher by going into advanced. By default, this runs at half res, 50 primary steps on clouds and 6 light steps. I don't believe there's a big performance impact here unless you're on older hardware.
+My main focus with these clouds was keeping them visually stable and very optimized because I wanted them to work well in VR too. They could still use some improving, a lot of improving can be done just with the values I locked behind in advanced settings. You can also increase the primary steps/light steps higher by going into advanced. By default, this runs at half res, 35 primary steps on clouds and 6 light steps. I don't believe there's a big performance impact here unless you're on older hardware.
 
 **Features:**
 - Weather affects density
