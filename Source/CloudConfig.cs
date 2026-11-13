@@ -55,6 +55,7 @@ namespace CloudSix.Source
         public static ConfigEntry<float> WorldExposure;
         public static ConfigEntry<float> EyeStrength;
         public static ConfigEntry<float> EyeMaxBrighten;
+        public static ConfigEntry<float> EyeMaxBrightenNight;
         public static ConfigEntry<float> EyeMaxDarken;
         public static ConfigEntry<float> EyeSkyInfluence;
         public static ConfigEntry<float> EyeSpeed;
@@ -206,9 +207,13 @@ namespace CloudSix.Source
             }
         }
 
+        // A config written under a different value is cleared, so players get changed defaults. Bump it ONLY
+        // when a default changes; tying it to the plugin version reset everyone's tuning on every release.
+        private const string ConfigFormatVersion = "4.0.2";
+
         public static void Bind(ConfigFile config)
         {
-            string currentVersion = MetadataHelper.GetMetadata(typeof(Plugin)).Version.ToString();
+            string currentVersion = ConfigFormatVersion;
             var version = config.Bind("Internal", "ConfigVersion", "", "Do not modify");
 
             if (version == null || version.Value != currentVersion)
@@ -235,6 +240,8 @@ namespace CloudSix.Source
                 new ConfigDescription("How much of a brightness difference the eye makes up for. 0 = none (fixed exposure), 1 = fully evens every view out to the same brightness. 0.5 brightens a room that is 4x darker than outdoors by 2x.", new AcceptableValueRange<float>(0f, 1f)));
             EyeMaxBrighten = config.Bind("Eye Adaptation", "Max Brighten Stops", 0.5f,
                 new ConfigDescription("The most the view may brighten in dark places, in stops (1 stop = 2x): 1 = up to twice as bright.", new AcceptableValueRange<float>(0f, 3f)));
+            EyeMaxBrightenNight = config.Bind("Eye Adaptation", "Max Brighten At Night", 0f,
+                new ConfigDescription("The same limit at night: Max Brighten Stops fades to this as the sun goes from 6 degrees above the horizon to 6 degrees below it. 0 = nights stay at World Exposure, as dark as the game lights them (a night view is always darker than daylight, so it would otherwise always brighten).", new AcceptableValueRange<float>(0f, 3f)));
             EyeMaxDarken = config.Bind("Eye Adaptation", "Max Darken Stops", 1f,
                 new ConfigDescription("The most the view may dim when looking at something bright, in stops (1 stop = half).", new AcceptableValueRange<float>(0f, 3f)));
             EyeSkyInfluence = config.Bind("Eye Adaptation", "Sky Influence", 0.7f,

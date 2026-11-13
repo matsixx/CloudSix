@@ -59,6 +59,7 @@ namespace CloudSix.Source
         private static int readings, readingsUsed;
         private static float lastReadingTime = -1f;
         private static float meteredLog2, currentStops, lastTarget;
+        private static float sunDegrees, maxBrighten;   // this frame's sun height and brighten limit (the log line)
         private static float skyFrac, skyRowsLow, skyRowsHigh;
         private static bool lastHadDepth;
         private static float lastLogTime, firstUpdateTime = -1f;
@@ -426,13 +427,19 @@ namespace CloudSix.Source
                 MeasureDaylight(now);
 
             float reference = CloudConfig.EyeDaylight.Value;
+            // The reference is a daytime view, so every night view reads darker than it: the brighten limit fades to
+            // its night value across twilight (sun +6 deg -> -6 deg). No sky = daytime limit.
+            var tod = MonoBehaviourSingleton<TOD_Sky>.Instance;
+            sunDegrees = tod != null ? Mathf.Asin(Mathf.Clamp(tod.SunDirection.y, -1f, 1f)) * Mathf.Rad2Deg : 90f;
+            float daylight = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-6f, 6f, sunDegrees));
+            maxBrighten = Mathf.Lerp(Mathf.Max(CloudConfig.EyeMaxBrightenNight.Value, 0f),
+                                     Mathf.Max(CloudConfig.EyeMaxBrighten.Value, 0f), daylight);
             float target = 0f;
             if (fresh && !thermal)   // the thermal image is not the scene we metered
             {
                 float strength = Mathf.Clamp01(CloudConfig.EyeStrength.Value);
                 target = Mathf.Clamp((reference - meteredLog2) * strength,
-                                     -Mathf.Max(CloudConfig.EyeMaxDarken.Value, 0f),
-                                      Mathf.Max(CloudConfig.EyeMaxBrighten.Value, 0f));
+                                     -Mathf.Max(CloudConfig.EyeMaxDarken.Value, 0f), maxBrighten);
             }
             lastTarget = target;
 
@@ -447,6 +454,7 @@ namespace CloudSix.Source
                 string refText = $"daylight {reference:0.00}";
                 string measuring = measureTime > 0f ? $" | measuring daylight {measureTime:0.0}/{MeasureSeconds:0} s" : "";
                 Plugin.MyLog.LogInfo($"[CloudSix] EyeAdapt: scene {meteredLog2:0.00} {refText} (log2 luminance) | target {target:+0.00;-0.00} now {currentStops:+0.00;-0.00} stops -> exposure {exposure:0.00} | " +
+                                     $"sun {sunDegrees:0} deg, brighten limit {maxBrighten:0.00} | " +
                                      $"reading {(hasReading ? (now - lastReadingTime).ToString("0.00") + " s old" : "none")} | sky {skyFrac:P0} (rows 0-7 {skyRowsLow:P0}, rows 8-15 {skyRowsHigh:P0}) depth={(lastHadDepth ? "yes" : "NO")} | VR mask {maskedFrac:P0} (asked {maskRequested}, raw {maskMin:0.#####}..{maskMax:0.#####}, at near {maskNear} / >=0.99 {maskNear99} / at far {maskFar} of {maskDepth.Length}) | game says {(outdoor ? "outdoor" : "indoor")}{measuring}");
             }
             return exposure;

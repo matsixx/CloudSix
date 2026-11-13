@@ -90,6 +90,8 @@ namespace CloudSix.Source
         // direct assignment so the two writers can never flip-flop. (Deliberately NOT ShadowWorldSize —
         // the shipped look was tuned with the cookie at 5000 while the map spans ShadowWorldSize.)
         public const float SunCookieWorldSize = 5000f;
+        // Must match CloudShadowMap.shader's `sunDir.y < 0.05` early-out (below it the cookie is all lit).
+        private const float ShadowHorizonCut = 0.05f;
         public static bool ShadowPipelineReady => shadowMaterial != null;
 
         public enum EShadowResolution { Low, Medium, High }
@@ -960,15 +962,17 @@ namespace CloudSix.Source
             shadowMaterial.SetFloat("_CurlStrength", cloudMat.GetFloat("_CurlStrength"));
             shadowMaterial.SetFloat("_Extinction", cloudMat.GetFloat("_Extinction"));
 
-            // Build the cookie in the SAME sun frame the clouds + sun disc use (cloudMat._SunDirection =
-            // todSky.LocalSunDirection), NOT from mainLight.transform. The TOD directional light is clamped to
-            // Light.MinimumHeight, throttled by Light.UpdateInterval, and becomes the MOON at night, so it
-            // drifts from the real sun (worst at low sun) — which made the godray shafts converge slightly off
-            // the visible sun/clouds. Deriving the shadow+godray basis from _SunDirection guarantees the
-            // shadows line up with what the clouds are actually lit by.
+            // With the sun up, build the cookie in the SAME sun frame the clouds + sun disc use
+            // (cloudMat._SunDirection = todSky.LocalSunDirection), not from mainLight.transform: the TOD light is
+            // clamped to Light.MinimumHeight and throttled, so it drifts from the real sun (worst at low sun) and
+            // the godray shafts would converge off the visible sun.
+            // Once the sun is below the cookie's horizon cut (CloudShadowMap.shader: y < 0.05 = all lit) it casts
+            // no cloud shadow, but the TOD light still lights the ground: the sun held at MinimumHeight in late
+            // twilight, the MOON once TOD_Sky.IsNight. March along that light then, so clouds block moonlight.
+            // Godrays need the real sun above 0.06, so they never read the light-aligned cookie.
             Vector3 sunDir = cloudMat.GetVector("_SunDirection");
-            if (sunDir.sqrMagnitude < 1e-6f)
-                sunDir = -mainLight.transform.forward;   // fallback if the material hasn't been fed yet
+            if (sunDir.sqrMagnitude < 1e-6f || sunDir.normalized.y < ShadowHorizonCut)
+                sunDir = -mainLight.transform.forward;
             sunDir.Normalize();
             Vector3 refUp = Mathf.Abs(sunDir.y) < 0.99f ? Vector3.up : Vector3.forward;
             Vector3 lightRight = Vector3.Normalize(Vector3.Cross(refUp, sunDir));
