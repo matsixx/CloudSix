@@ -5,10 +5,17 @@ using CloudSix.Source;
 
 namespace CloudSix
 {
-    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "4.0.3")]
+    [BepInPlugin("com.matsix.cloudsix", "CloudSix", "4.0.4")]
     public class Plugin : BaseUnityPlugin
     {
         public static ManualLogSource MyLog;
+
+        // Load confirmations and one-time diagnostics (UnityExplorer, live); errors and what the player asks for go out always.
+        public static bool debugLog = false;
+        internal static void LogDetail(string message)
+        {
+            if (debugLog) MyLog.LogInfo(message);
+        }
 
         private void Awake()
         {

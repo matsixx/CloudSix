@@ -135,7 +135,7 @@ namespace CloudSix.Source
                 SkyAtmosphere.SetShader(cloudBundle.LoadAsset<Shader>("CloudSixAtmosphere"));
                 cloudBundle.Unload(false);
                 GameObject.DontDestroyOnLoad(cloudPrefab);
-                Plugin.MyLog.LogInfo("Cloud prefab loaded successfully.");
+                Plugin.LogDetail("Cloud prefab loaded successfully.");
             }
             catch (Exception ex)
             {
@@ -148,9 +148,9 @@ namespace CloudSix.Source
             if (shadowMaterial != null) return;
             if (shadowShader != null)
             {
-                Plugin.MyLog.LogInfo($"shadowShader loaded: name='{shadowShader.name}', isSupported={shadowShader.isSupported}");
+                Plugin.LogDetail($"shadowShader loaded: name='{shadowShader.name}', isSupported={shadowShader.isSupported}");
                 shadowMaterial = new Material(shadowShader);
-                Plugin.MyLog.LogInfo($"Shadow material created. Material's shader: '{shadowMaterial.shader.name}', passes={shadowMaterial.passCount}");
+                Plugin.LogDetail($"Shadow material created. Material's shader: '{shadowMaterial.shader.name}', passes={shadowMaterial.passCount}");
             }
             else if (!shadowShaderErrorLogged)   // one-shot: this is now called every frame
             {
@@ -165,7 +165,7 @@ namespace CloudSix.Source
                 cloudShadowMap.wrapMode = TextureWrapMode.Repeat;
                 cloudShadowMap.filterMode = FilterMode.Bilinear;
                 cloudShadowMap.Create();
-                Plugin.MyLog.LogInfo($"Shadow RT created: {cloudShadowMap.IsCreated()}");
+                Plugin.LogDetail($"Shadow RT created: {cloudShadowMap.IsCreated()}");
             }
         }
 
@@ -178,7 +178,7 @@ namespace CloudSix.Source
             {
                 compositeMaterial = new Material(compositeShader);
                 temporalMaterial = new Material(compositeShader);
-                Plugin.MyLog.LogInfo("Cloud composite material loaded.");
+                Plugin.LogDetail("Cloud composite material loaded.");
             }
             else
             {
@@ -223,7 +223,7 @@ namespace CloudSix.Source
                 cloudInstance = GameObject.Instantiate(cloudPrefab);
                 //cloudInstance.transform.position = new Vector3(0, -70, 0);
                 //cloudInstance.transform.localScale = new Vector3(10f, 10f, 10f);
-                Plugin.MyLog.LogInfo("Cloud prefab instantiated.");
+                Plugin.LogDetail("Cloud prefab instantiated.");
             }
             
             LoadCompositeMaterial();
@@ -884,6 +884,7 @@ namespace CloudSix.Source
 
             if (cloudShadowMap != null)
             {
+                UnpublishCloudShadow();
                 cloudShadowMap.Release();
                 UnityEngine.Object.Destroy(cloudShadowMap);
                 cloudShadowMap = null;
@@ -900,7 +901,6 @@ namespace CloudSix.Source
 
         public static void UpdateCloudShadowMap(Material cloudMat, Light mainLight, Vector3 camPos)
         {
-            //Plugin.MyLog.LogInfo($"UpdateShadow: lightDir={lightDir}, sunY={lightDir.y}");
             if (shadowMaterial == null || cloudMat == null)
             {
                 Plugin.MyLog.LogWarning($"UpdateCloudShadowMap skipped: shadowMat={shadowMaterial != null}, cloudMat={cloudMat != null}");
@@ -1007,6 +1007,26 @@ namespace CloudSix.Source
             cloudMat.SetVector("_ShadowLightUp", lightUp);
             cloudMat.SetVector("_ShadowCamPos", camPos);
             cloudMat.SetFloat("_ShadowMapSize", shadowWorldSize);
+
+            // The same cookie + lookup published for other mods (TraceSix shades its own sunlight with it): the cloud
+            // shadow at p = _CloudSixShadowMap.r at uv = (dot(p - origin, right), dot(p - origin, up)) * origin.w + 0.5,
+            // origin.w = 1 / world size (0 = none); _CloudSixShadowFrame = Time.frameCount of this redraw.
+            Shader.SetGlobalTexture(IdPublishedShadowMap, cloudShadowMap);
+            Shader.SetGlobalVector(IdPublishedShadowRight, lightRight);
+            Shader.SetGlobalVector(IdPublishedShadowUp, lightUp);
+            Shader.SetGlobalVector(IdPublishedShadowOrigin, new Vector4(camPos.x, camPos.y, camPos.z, 1f / Mathf.Max(shadowWorldSize, 1f)));
+            Shader.SetGlobalFloat(IdPublishedShadowFrame, Time.frameCount);
+        }
+
+        private static readonly int IdPublishedShadowMap = Shader.PropertyToID("_CloudSixShadowMap"),
+            IdPublishedShadowRight = Shader.PropertyToID("_CloudSixShadowRight"), IdPublishedShadowUp = Shader.PropertyToID("_CloudSixShadowUp"),
+            IdPublishedShadowOrigin = Shader.PropertyToID("_CloudSixShadowOrigin"), IdPublishedShadowFrame = Shader.PropertyToID("_CloudSixShadowFrame");
+
+        private static void UnpublishCloudShadow()
+        {
+            Shader.SetGlobalTexture(IdPublishedShadowMap, null);
+            Shader.SetGlobalVector(IdPublishedShadowOrigin, Vector4.zero);
+            Shader.SetGlobalFloat(IdPublishedShadowFrame, -1f);
         }
     }
 }

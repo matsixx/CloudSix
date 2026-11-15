@@ -1,4 +1,5 @@
 using EFT.EnvironmentEffect;
+using EFT.Weather;
 using System;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -59,7 +60,7 @@ namespace CloudSix.Source
         private static int readings, readingsUsed;
         private static float lastReadingTime = -1f;
         private static float meteredLog2, currentStops, lastTarget;
-        private static float sunDegrees, maxBrighten;   // this frame's sun height and brighten limit (the log line)
+        private static float sunDegrees, sunlight, maxBrighten;   // this frame's sun height, direct-light share, brighten limit (the log line)
         private static float skyFrac, skyRowsLow, skyRowsHigh;
         private static bool lastHadDepth;
         private static float lastLogTime, firstUpdateTime = -1f;
@@ -78,7 +79,7 @@ namespace CloudSix.Source
             {
                 prism = cam.GetComponent<PrismEffects>();
                 if (prism != null)
-                    Plugin.MyLog.LogInfo($"[CloudSix] Prism exposure as found: useExposure={prism.useExposure} middleGrey={prism.exposureMiddleGrey:0.###} " +
+                    Plugin.LogDetail($"[CloudSix] Prism exposure as found: useExposure={prism.useExposure} middleGrey={prism.exposureMiddleGrey:0.###} " +
                                          $"limits=[{prism.exposureLowerLimit:0.###}, {prism.exposureUpperLimit:0.###}] speed={prism.exposureSpeed:0.###}");
             }
             return prism;
@@ -241,7 +242,7 @@ namespace CloudSix.Source
             if (haveMask && !maskLogged && maskedFrac > 0.05f)
             {
                 maskLogged = true;
-                Plugin.MyLog.LogInfo($"[CloudSix] Eye adaptation: VR hidden-area mask detected - {maskedFrac:P0} of the image is masked and left out of the meter");
+                Plugin.LogDetail($"[CloudSix] Eye adaptation: VR hidden-area mask detected - {maskedFrac:P0} of the image is masked and left out of the meter");
             }
         }
 
@@ -397,6 +398,28 @@ namespace CloudSix.Source
             measureSum = measureTime = 0f;
         }
 
+        // The game's directional light now (sun by day, moon by night) against the same light at full day, 0..1.
+        // Light = intensity x colour: TOD_Sky sets the intensity (0 at its day / night hand-over, the moon's only
+        // while it is up), ToDController the colour (its gradient by sun height, desaturated by fog). Full day is
+        // taken under the current fog, so fog and overcast do not count as night. No sky = daytime; nothing to
+        // compare to (light or gradient missing, fog thick enough to leave no direct light at any hour) = the
+        // sun-height ramp, +6 deg -> -6 deg.
+        private static float DirectLightShare(TOD_Sky tod)
+        {
+            if (tod == null) return 1f;
+            float sunHeightRamp = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-6f, 6f, sunDegrees));
+            var timeOfDay = WeatherController.Instance != null ? WeatherController.Instance.TimeOfDayController : null;
+            Light light = tod.Components != null ? tod.Components.LightSource : null;
+            Gradient lightColor = timeOfDay != null ? CustomCloudController.VanillaLightColor(timeOfDay) : null;
+            if (light == null || lightColor == null) return sunHeightRamp;
+            float clearSky = tod.ClearSky;
+            float fullDayLight = tod.Day.LightIntensity * clearSky
+                               * ToDController.SaturateColor(lightColor.Evaluate(1f), clearSky).maxColorComponent;
+            if (fullDayLight < 1e-4f) return sunHeightRamp;
+            float lightNow = light.isActiveAndEnabled ? light.intensity * light.color.maxColorComponent : 0f;
+            return Mathf.Clamp01(lightNow / fullDayLight);
+        }
+
         // Once per frame, before rendering: the exposure multiplier to hand Prism (both eyes get the same one).
         public static float Update()
         {
@@ -417,7 +440,9 @@ namespace CloudSix.Source
             bool fresh = hasReading && now - lastReadingTime <= StaleAfter;
             if (hasReading && !fresh && !warnedStale)
             {
-                Plugin.MyLog.LogWarning($"[CloudSix] Eye adaptation: no new meter reading for {StaleAfter} s - easing back to World Exposure until they resume.");
+                // a long frame (raid loading) does it too: only with Log Eye Adaptation
+                if (CloudConfig.EyeLog.Value)
+                    Plugin.MyLog.LogInfo($"[CloudSix] Eye adaptation: no new meter reading for {StaleAfter} s - easing back to World Exposure until they resume.");
                 warnedStale = true;
             }
             else if (fresh)
@@ -427,13 +452,14 @@ namespace CloudSix.Source
                 MeasureDaylight(now);
 
             float reference = CloudConfig.EyeDaylight.Value;
-            // The reference is a daytime view, so every night view reads darker than it: the brighten limit fades to
-            // its night value across twilight (sun +6 deg -> -6 deg). No sky = daytime limit.
+            // The reference is a daytime view, so every darker hour reads darker than it: the brighten limit follows
+            // how much direct light the game's sun / moon gives right now (the sun height alone called a sun with no
+            // light left "day").
             var tod = MonoBehaviourSingleton<TOD_Sky>.Instance;
             sunDegrees = tod != null ? Mathf.Asin(Mathf.Clamp(tod.SunDirection.y, -1f, 1f)) * Mathf.Rad2Deg : 90f;
-            float daylight = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-6f, 6f, sunDegrees));
+            sunlight = DirectLightShare(tod);
             maxBrighten = Mathf.Lerp(Mathf.Max(CloudConfig.EyeMaxBrightenNight.Value, 0f),
-                                     Mathf.Max(CloudConfig.EyeMaxBrighten.Value, 0f), daylight);
+                                     Mathf.Max(CloudConfig.EyeMaxBrighten.Value, 0f), sunlight);
             float target = 0f;
             if (fresh && !thermal)   // the thermal image is not the scene we metered
             {
@@ -454,7 +480,7 @@ namespace CloudSix.Source
                 string refText = $"daylight {reference:0.00}";
                 string measuring = measureTime > 0f ? $" | measuring daylight {measureTime:0.0}/{MeasureSeconds:0} s" : "";
                 Plugin.MyLog.LogInfo($"[CloudSix] EyeAdapt: scene {meteredLog2:0.00} {refText} (log2 luminance) | target {target:+0.00;-0.00} now {currentStops:+0.00;-0.00} stops -> exposure {exposure:0.00} | " +
-                                     $"sun {sunDegrees:0} deg, brighten limit {maxBrighten:0.00} | " +
+                                     $"sun {sunDegrees:0} deg, sunlight {sunlight:P0} of full day, brighten limit {maxBrighten:0.00} | " +
                                      $"reading {(hasReading ? (now - lastReadingTime).ToString("0.00") + " s old" : "none")} | sky {skyFrac:P0} (rows 0-7 {skyRowsLow:P0}, rows 8-15 {skyRowsHigh:P0}) depth={(lastHadDepth ? "yes" : "NO")} | VR mask {maskedFrac:P0} (asked {maskRequested}, raw {maskMin:0.#####}..{maskMax:0.#####}, at near {maskNear} / >=0.99 {maskNear99} / at far {maskFar} of {maskDepth.Length}) | game says {(outdoor ? "outdoor" : "indoor")}{measuring}");
             }
             return exposure;

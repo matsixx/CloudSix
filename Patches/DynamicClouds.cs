@@ -227,7 +227,7 @@ namespace CloudSix.Patches
 
             if (!_moonModeLogged)
             {
-                Plugin.MyLog.LogInfo($"[CloudSix] TOD moon position mode = {todSky.Moon.Position}. " +
+                Plugin.LogDetail($"[CloudSix] TOD moon position mode = {todSky.Moon.Position}. " +
                     "OppositeToSun = moon pinned 180 deg from the sun (rises where the sun sets, always FULL " +
                     "phase). Realistic = date-driven orbit with real phases. Set 'Moon Orbit Mode' in config " +
                     "to Realistic for changing phases.");
@@ -235,7 +235,7 @@ namespace CloudSix.Patches
                 // sun). The GAME still projects that cookie onto terrain along the directional light, which TOD
                 // clamps to Light.MinimumHeight. If this is > 0, terrain cloud shadows can drift slightly from
                 // the clouds only within a thin near-horizon (golden-hour) band; 0 = no divergence ever.
-                Plugin.MyLog.LogInfo($"[CloudSix] TOD Light.MinimumHeight = {todSky.Light.MinimumHeight:0.###} " +
+                Plugin.LogDetail($"[CloudSix] TOD Light.MinimumHeight = {todSky.Light.MinimumHeight:0.###} " +
                     "(0 = terrain cloud shadows never diverge from clouds; >0 = a faint dawn/dusk band only).");
                 _moonModeLogged = true;
             }

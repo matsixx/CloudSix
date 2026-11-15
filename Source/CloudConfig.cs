@@ -209,7 +209,7 @@ namespace CloudSix.Source
 
         // A config written under a different value is cleared, so players get changed defaults. Bump it ONLY
         // when a default changes; tying it to the plugin version reset everyone's tuning on every release.
-        private const string ConfigFormatVersion = "4.0.2";
+        private const string ConfigFormatVersion = "4.0.4";
 
         public static void Bind(ConfigFile config)
         {
@@ -241,10 +241,10 @@ namespace CloudSix.Source
             EyeMaxBrighten = config.Bind("Eye Adaptation", "Max Brighten Stops", 0.5f,
                 new ConfigDescription("The most the view may brighten in dark places, in stops (1 stop = 2x): 1 = up to twice as bright.", new AcceptableValueRange<float>(0f, 3f)));
             EyeMaxBrightenNight = config.Bind("Eye Adaptation", "Max Brighten At Night", 0f,
-                new ConfigDescription("The same limit at night: Max Brighten Stops fades to this as the sun goes from 6 degrees above the horizon to 6 degrees below it. 0 = nights stay at World Exposure, as dark as the game lights them (a night view is always darker than daylight, so it would otherwise always brighten).", new AcceptableValueRange<float>(0f, 3f)));
+                new ConfigDescription("The same limit when the sun or moon gives little direct light: the limit goes from Max Brighten Stops in full daylight down to this as that light fades - dusk, the early morning before the sun light comes back, night (the moon gives only a little). 0 = those views stay at World Exposure, as dark as the game lights them (they are always darker than daylight, so they would otherwise always brighten).", new AcceptableValueRange<float>(0f, 3f)));
             EyeMaxDarken = config.Bind("Eye Adaptation", "Max Darken Stops", 1f,
                 new ConfigDescription("The most the view may dim when looking at something bright, in stops (1 stop = half).", new AcceptableValueRange<float>(0f, 3f)));
-            EyeSkyInfluence = config.Bind("Eye Adaptation", "Sky Influence", 0.7f,
+            EyeSkyInfluence = config.Bind("Eye Adaptation", "Sky Influence", 1f,
                 new ConfigDescription("How much the sky counts when measuring brightness, next to the ground and objects (1 = same as everything else, 0 = ignored). Low keeps the sky from dimming the whole view when you look up.", new AcceptableValueRange<float>(0f, 1f)));
             EyeSpeed = config.Bind("Eye Adaptation", "Adaptation Speed", 1f,
                 new ConfigDescription("How fast the eye adjusts. At 1 it dims in about a third of a second and brightens in about a second.", new AcceptableValueRange<float>(0.1f, 4f)));
@@ -299,7 +299,7 @@ namespace CloudSix.Source
                     "cookie's density sampling). The cookie otherwise samples the FINEST cauliflower detail, so " +
                     "the ground shadow reads busy/noisy. Higher = the shadow follows only the big cloud SHAPES " +
                     "(cleaner); 0 = full detail (old, noisy).", new AcceptableValueRange<float>(0f, 5f)));
-            ShadowWorldSize = config.Bind("Terrain Shadow", "Shadow World Size (m)", 15000f,
+            ShadowWorldSize = config.Bind("Terrain Shadow", "Shadow World Size (m)", 5000f,
                 new ConfigDescription("How much ground the shadow cookie covers, in metres. Larger = the shadow " +
                     "reaches further out AND each texel covers more ground (coarser, softer shadow); smaller = " +
                     "sharper but a smaller shadowed area around you.", new AcceptableValueRange<float>(2000f, 15000f)));
@@ -594,15 +594,15 @@ namespace CloudSix.Source
                 Adv("Horizon alpha height (where clouds disappear into horizon)", new AcceptableValueRange<float>(0f, 1f)));
 
             // High Clouds (advanced)
-            HighCloudHeight = config.Bind("High Clouds", "Height", 8000f,
+            HighCloudHeight = config.Bind("High Clouds", "Height", 10000f,
                 Adv("Altitude of high cloud layer (real cirrus sit ~8000 m; higher = lit longer after sunset)", new AcceptableValueRange<float>(0.5f, 12000f)));
             //HighCloudCoverage = config.Bind("High Clouds", "Coverage", 0.8f,
             //    Adv("High cloud coverage amount", new AcceptableValueRange<float>(0f, 1f)));
-            HighCloudOpacity = config.Bind("High Clouds", "Opacity", 0.51f,
+            HighCloudOpacity = config.Bind("High Clouds", "Opacity", 0.95f,
                 Adv("High cloud opacity looking straight up (thicker toward the horizon, like real cirrus). Clearly visible cirrus are ~0.3-0.5; below ~0.1 they're sub-visible except near the sun.", new AcceptableValueRange<float>(0f, 0.95f)));
             HighCloudTiling = config.Bind("High Clouds", "Tiling", 0.4f,
                 Adv("High cloud noise scale", new AcceptableValueRange<float>(0.1f, 5f)));
-            HighCloudStretch = config.Bind("High Clouds", "Stretch", 0.64f,
+            HighCloudStretch = config.Bind("High Clouds", "Stretch", 1f,
                 Adv("Wispy streak stretch amount (lower = more streaky)", new AcceptableValueRange<float>(0.05f, 1f)));
             HighCloudHalo = config.Bind("High Clouds", "Ice Halo", 0.5f,
                 Adv("22-degree halo around the sun and moon in patches of the high cloud veil (ice crystals can't bend light less than ~22 deg, so it piles up in a ring). 0 = off.", new AcceptableValueRange<float>(0f, 1f)));

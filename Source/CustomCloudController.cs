@@ -178,6 +178,10 @@ namespace CloudSix.Source
             _groundLightActive = false;
         }
 
+        // The game's own sun colour gradient (while the ground lighting runs, todc.LightColor is our flat one).
+        internal static Gradient VanillaLightColor(ToDController todc) =>
+            _groundLightActive && _defaultLightColor != null ? _defaultLightColor : todc.LightColor;
+
         // Analytic sky-ambient HUE: lightened Rayleigh blue by day, warming toward the sun colour near the
         // horizon. Normalized to a pure hue (brightness comes from the game's default ambient gradient).
         private static Color SkyAmbientHue(float sunElevSin)
